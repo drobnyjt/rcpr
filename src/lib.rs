@@ -204,8 +204,9 @@ pub mod chebyshev {
         roots
     }
 
-    pub fn find_roots_with_newton_polishing(f: &dyn Fn(f64) -> f64, df: &dyn Fn(f64) -> f64, a: f64, b: f64, N0: usize, epsilon: f64, N_max: usize, complex_threshold: f64, truncation_threshold: f64, interval_limit: f64) -> Vec<f64> {
-        let roots = find_roots(f, a, b, N0, epsilon, N_max, complex_threshold, truncation_threshold, interval_limit);
+    pub fn find_roots_with_newton_polishing(g: &dyn Fn(f64) -> f64, f: &dyn Fn(f64) -> f64, df: &dyn Fn(f64) -> f64, a: f64, b: f64, N0: usize, epsilon: f64, N_max: usize, complex_threshold: f64, truncation_threshold: f64, interval_limit: f64) -> Vec<f64> {
+        let roots = find_roots(g, a, b, N0, epsilon, N_max, complex_threshold, truncation_threshold, interval_limit);
+        
         let mut polished_roots: Vec<f64> = Vec::new();
 
         for &root in roots.iter() {
