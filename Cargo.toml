@@ -1,5 +1,5 @@
 [package]
-name = "chebyshev_proxy_rootfinder"
+name = "rcpr"
 version = "0.1.0"
 authors = ["Jarat <drobny2@illinois.edu>"]
 edition = "2018"
