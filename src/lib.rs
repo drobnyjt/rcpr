@@ -65,7 +65,7 @@ mod tests {
     }
 }
 
-mod chebyshev {
+pub mod chebyshev {
     use ndarray::{Array2, Array1, ArrayBase};
     use std::f64::consts::PI;
     use ndarray_linalg::*;
