@@ -6,12 +6,11 @@ extern crate blas;
 extern crate openblas_src;
 extern crate time;
 
-
 #[cfg(test)]
 mod tests {
 
     use time::Instant;
-    use crate::chebyshev::*;
+    pub use crate::chebyshev::*;
     use ndarray_linalg::*;
 
     #[test]
@@ -66,8 +65,12 @@ mod tests {
     }
 }
 
+pub mod roots {
+    pub use crate::chebyshev;
+}
+
 pub mod chebyshev {
-    use ndarray::{Array2, Array1, ArrayBase};
+    use ndarray::{Array2, Array1};
     use std::f64::consts::PI;
     use ndarray_linalg::*;
     //use itertools::{zip_eq, chain};
