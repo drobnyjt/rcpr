@@ -1,4 +1,5 @@
 #![allow(non_snake_case)]
+
 #[macro_use(s)]
 extern crate ndarray;
 
@@ -7,7 +8,6 @@ mod tests {
 
     use time::Instant;
     pub use crate::chebyshev::*;
-    use ndarray_linalg::*;
 
     #[test]
     fn it_works() {
@@ -69,7 +69,7 @@ pub mod chebyshev {
     use ndarray::{Array2, Array1};
     use std::f64::consts::PI;
     use ndarray_linalg::*;
-    //use itertools::{zip_eq, chain};
+    use cached::proc_macro::cached;
 
     fn p(j: usize, N: usize) -> f64 {
         if (j == 0) || (j == N) {
@@ -87,6 +87,7 @@ pub mod chebyshev {
         }
     }
 
+    #[cached]
     fn interpolation_matrix(N: usize) -> Array2<f64> {
 
         let mut I_jk: Array2<f64> = Array2::zeros((N + 1, N + 1));
@@ -266,7 +267,7 @@ pub mod chebyshev {
                 let (intervals_new, coefficients_new) = chebyshev_subdivide(f, vec![(a1, b1), (a2, b2)], N0, epsilon, N_max, interval_limit);
 
                 for (i, c) in intervals_new.iter().zip(coefficients_new) {
-                    intervals_out.push(i.clone());
+                    intervals_out.push(*i);
                     coefficients.push(c.clone());
                 }
             }
