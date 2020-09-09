@@ -16,4 +16,4 @@ lapack = ""
 lapack-src = ""
 
 [lib]
-crate-type = ["dylib"]
+crate-type = ["rlib"]
