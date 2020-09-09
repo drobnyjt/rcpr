@@ -4,6 +4,8 @@ extern crate ndarray;
 extern crate ndarray_linalg;
 extern crate blas;
 extern crate openblas_src;
+extern crate lapack;
+extern crate lapack_src;
 extern crate time;
 
 #[cfg(test)]
