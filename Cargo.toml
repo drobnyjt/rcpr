@@ -8,12 +8,8 @@ edition = "2018"
 
 [dependencies]
 ndarray = "0.13.1"
-ndarray-linalg = "0.12.1"
-openblas-src = "0.9"
-blas = "0.20"
+ndarray-linalg = {version = "0.12.1", features=["openblas"]}
 time = ""
-lapack = ""
-lapack-src = ""
 
 [lib]
 crate-type = ["rlib"]
