@@ -36,9 +36,10 @@ mod tests {
         let N_max = 100;
         let complex_threshold = 1E-13;
         let interval_limit = 1E-9;
+        let far_from_zero = 1E2;
 
         let start = Instant::now();
-        let roots = find_roots(&g, a, b, N0, epsilon, N_max, complex_threshold, truncation_threshold, interval_limit);
+        let roots = find_roots(&g, a, b, N0, epsilon, N_max, complex_threshold, truncation_threshold, interval_limit, far_from_zero);
         let stop = Instant::now();
 
         let mut num_roots: usize = 0;
@@ -170,7 +171,7 @@ pub mod chebyshev {
         return a_j
     }
 
-    pub fn find_roots(f: &dyn Fn(f64) -> f64, a: f64, b: f64, N0: usize, epsilon: f64, N_max: usize, complex_threshold: f64, truncation_threshold: f64, interval_limit: f64) -> Vec<f64> {
+    pub fn find_roots(f: &dyn Fn(f64) -> f64, a: f64, b: f64, N0: usize, epsilon: f64, N_max: usize, complex_threshold: f64, truncation_threshold: f64, interval_limit: f64, far_from_zero: f64) -> Vec<f64> {
         let mut roots: Vec<f64> = Vec::new();
 
         assert!(b > a);
@@ -178,6 +179,14 @@ pub mod chebyshev {
         let (intervals, coefficients) = chebyshev_subdivide(&f, vec![(a, b)], N0, epsilon, N_max, interval_limit);
 
         for (i, c) in intervals.iter().zip(coefficients) {
+
+            let xk = lobatto_grid(i.0, i.1, c.len() - 1);
+            let fxk: Vec<f64> = xk.iter().map(|&x| f(x)).collect();
+
+            //Test if all chebyshev interpolants
+            if fxk.iter().all(|fx| fx.abs() > far_from_zero) {
+                break
+            }
 
             let a_j = truncate_coefficients(c, truncation_threshold);
 
@@ -198,8 +207,9 @@ pub mod chebyshev {
         roots
     }
 
-    pub fn find_roots_with_newton_polishing(g: &dyn Fn(f64) -> f64, f: &dyn Fn(f64) -> f64, df: &dyn Fn(f64) -> f64, a: f64, b: f64, N0: usize, epsilon: f64, N_max: usize, complex_threshold: f64, truncation_threshold: f64, interval_limit: f64) -> Vec<f64> {
-        let roots = find_roots(g, a, b, N0, epsilon, N_max, complex_threshold, truncation_threshold, interval_limit);
+    pub fn find_roots_with_newton_polishing(g: &dyn Fn(f64) -> f64, f: &dyn Fn(f64) -> f64, df: &dyn Fn(f64) -> f64, a: f64, b: f64, N0: usize, epsilon: f64, N_max: usize, complex_threshold: f64, truncation_threshold: f64, interval_limit: f64, far_from_zero: f64) -> Vec<f64> {
+
+        let roots = find_roots(g, a, b, N0, epsilon, N_max, complex_threshold, truncation_threshold, interval_limit, far_from_zero);
 
         let mut polished_roots: Vec<f64> = Vec::new();
 
