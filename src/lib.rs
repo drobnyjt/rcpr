@@ -121,7 +121,7 @@ pub mod chebyshev {
         let mut x = x0;
         for _ in 0..=iter_max {
             let x1 = newton_iteration(f, df, x);
-            if (x1 - x)/x1 < epsilon {
+            if (x1 - x).abs()/x1 < epsilon {
                 return x1
             }
             x = x1;
