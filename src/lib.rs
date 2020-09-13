@@ -219,6 +219,9 @@ pub mod chebyshev {
             let root_refined = newton_polish(&f, &df, root, 100, epsilon);
             let correction = newton_correction(&f, &df, root_refined);
 
+            println!("root_refined");
+            println!("correction");
+
             if (correction/root_refined).abs() < 1E-3 {
                 polished_roots.push(root);
             }
