@@ -116,18 +116,23 @@ pub mod chebyshev {
     }
 
     pub fn newton_polish(f: &dyn Fn(f64) -> f64, df: &dyn Fn(f64) -> f64, x0: f64, iter_max: usize, epsilon: f64) -> f64 {
-        /*
-        */
-        println!("Newton polishing...");
-        let mut x = x0;
-        for _ in 0..=iter_max {
-            let x1 = newton_iteration(f, df, x);
-            if (x1 - x).powf(2.) < epsilon {
-                return x1
-            }
-            x = x1;
+
+        if x0.is_nan() {
+            panic!("x0 is nan.")
         }
-        return x0
+
+        let mut x = x0;
+
+        for _ in 1..=iter_max {
+            let xn = x - f(x)/df(x);
+            let err = (xn - x)*(xn - x);
+            x = xn;
+            if err < epsilon {
+                return x;
+            }
+        }
+        println!("Newton failed to converge.");
+        return f64::NAN
     }
 
     pub fn newton_iteration(f: &dyn Fn(f64) -> f64, df: &dyn Fn(f64) -> f64, x0: f64) -> f64 {
@@ -216,13 +221,10 @@ pub mod chebyshev {
 
         for &root in roots.iter() {
 
-            let root_refined = newton_polish(&f, &df, root, 100, epsilon);
-            let correction = newton_correction(&f, &df, root_refined);
+            let root_refined = newton_polish(&f, &df, root, 100, 1E-13);
+            let correction = root_refined - root;
 
-            println!("root_refined");
-            println!("correction");
-
-            if (correction/root_refined).abs() < 1E-3 {
+            if (correction/root_refined).abs() < 1. {
                 polished_roots.push(root);
             }
         }
