@@ -118,7 +118,7 @@ pub mod chebyshev {
     pub fn newton_polish(f: &dyn Fn(f64) -> f64, df: &dyn Fn(f64) -> f64, x0: f64, iter_max: usize, epsilon: f64) -> f64 {
         /*
         */
-        println!("Newton polishing...")
+        println!("Newton polishing...");
         let mut x = x0;
         for _ in 0..=iter_max {
             let x1 = newton_iteration(f, df, x);
