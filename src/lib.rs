@@ -51,7 +51,7 @@ mod tests {
 
             println!("CPR root: {} Newton Correction: {}%", root, correction*100.);
 
-            if (correction).abs() < 1E-3 {
+            if (correction).abs()/root_refined < 1E-3 {
                 num_roots += 1;
                 println!("Root Identified: {}", root_refined);
             }
