@@ -51,7 +51,7 @@ mod tests {
 
             println!("CPR root: {} Newton Correction: {}%", root, correction*100.);
 
-            if (correction).abs()/root_refined < 1E-3 {
+            if (correction/root_refined).abs() < 1E-3 {
                 num_roots += 1;
                 println!("Root Identified: {}", root_refined);
             }
@@ -219,7 +219,7 @@ pub mod chebyshev {
             let root_refined = newton_polish(&f, &df, root, 100, epsilon);
             let correction = newton_correction(&f, &df, root_refined);
 
-            if (correction) < 1E-3 {
+            if (correction/root_refined).abs() < 1E-3 {
                 polished_roots.push(root);
             }
         }
