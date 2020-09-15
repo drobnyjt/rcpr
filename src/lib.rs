@@ -1,18 +1,18 @@
 #![allow(non_snake_case)]
 
-#[macro_use(s)]
+#[macro_use(s, array)]
 extern crate ndarray;
 
 #[cfg(test)]
 mod tests {
 
+    use ndarray::{Array2, Array1};
+    use std::f64::consts::PI;
+    use ndarray_linalg::*;
+    use cached::proc_macro::cached;
+
     use time::Instant;
     pub use crate::chebyshev::*;
-
-    #[test]
-    fn it_works() {
-        assert_eq!(2 + 2, 4);
-    }
 
     fn g(x: f64) -> f64 {
         f(x)*(-x.abs()).exp()
@@ -60,6 +60,19 @@ mod tests {
         println!("Chebyshev adaptive interpolation with subdivision took {} s", start.to(stop).as_seconds_f32());
         println!("Identified {} roots.", num_roots)
     }
+
+    #[test]
+    fn test_polynom() {
+        ///(x - 1)^2*(x + 3)*(x + 3.2)
+        let g = |x: f64| x.powf(4.) + 4.2*x.powf(3.) - 1.8*x.powf(2.) - 13.*x + 9.6;
+        let c_j: Vec<f64> = vec![1., 5.2, 3.4, -9.6];//, -9.6, 3.4, 5.2, 1.];
+
+        let roots = real_polynomial_roots(c_j, 1E-12);
+
+        for root in roots.iter() {
+            println!("{}", root);
+        }
+    }
 }
 
 pub mod chebyshev {
@@ -67,6 +80,16 @@ pub mod chebyshev {
     use std::f64::consts::PI;
     use ndarray_linalg::*;
     use cached::proc_macro::cached;
+    use anyhow::*;
+
+    pub fn real_polynomial_roots(c_j: Vec<f64>, complex_threshold: f64) -> Vec<f64> {
+
+        let A_jk = monomial_frobenius_matrix(c_j.into());
+
+        let (roots, _) = A_jk.clone().eig().unwrap();
+
+        roots.iter().filter(|x| x.im <= complex_threshold).map(|x| x.re).collect::<Vec<f64>>()
+    }
 
     fn p(j: usize, N: usize) -> f64 {
         if (j == 0) || (j == N) {
@@ -94,8 +117,22 @@ pub mod chebyshev {
                 I_jk[[j, k]] = 2./p(j, N)/p(k, N)/N as f64*(j as f64*PI*k as f64/N as f64).cos();
             }
         }
+        I_jk
+    }
 
-        return I_jk
+    pub fn monomial_frobenius_matrix(c_j: Array1<f64>) -> Array2<f64> {
+        let N: usize = c_j.len() - 1;
+
+        let mut A_jk: Array2<f64> = Array2::zeros((N, N));
+
+        for k in 1..N {
+            A_jk[[k, k - 1]] = 1.0;
+        }
+
+        for k in 0..N {
+            A_jk[[k, N - 1]] = -c_j[N - k]
+        }
+        A_jk
     }
 
     pub fn chebyshev_frobenius_matrix(a_j: Array1<f64>) -> Array2<f64> {
@@ -180,9 +217,9 @@ pub mod chebyshev {
     pub fn find_roots(f: &dyn Fn(f64) -> f64, a: f64, b: f64, N0: usize, epsilon: f64, N_max: usize, complex_threshold: f64, truncation_threshold: f64, interval_limit: f64, far_from_zero: f64) -> Vec<f64> {
         let mut roots: Vec<f64> = Vec::new();
 
-        assert!(b > a);
+        assert!(b > a, "[{}, {}] is not a valid interval.");
 
-        let (intervals, coefficients) = chebyshev_subdivide(&f, vec![(a, b)], N0, epsilon, N_max, interval_limit);
+        let (intervals, coefficients) = chebyshev_subdivide(&f, vec![(a, b)], N0, epsilon, N_max, interval_limit).unwrap();
 
         for (i, c) in intervals.iter().zip(coefficients) {
 
@@ -251,14 +288,15 @@ pub mod chebyshev {
         xk
     }
 
-    pub fn chebyshev_subdivide(f: &dyn Fn(f64) -> f64, intervals: Vec<(f64, f64)>, N0: usize, epsilon: f64, N_max: usize, interval_limit: f64) -> (Vec<(f64, f64)>, Vec<Array1<f64>>) {
+    pub fn chebyshev_subdivide(f: &dyn Fn(f64) -> f64, intervals: Vec<(f64, f64)>, N0: usize, epsilon: f64, N_max: usize, interval_limit: f64) -> Result<(Vec<(f64, f64)>, Vec<Array1<f64>>), anyhow::Error> {
         let mut coefficients: Vec<Array1<f64>> = Vec::new();
         let mut intervals_out: Vec<(f64, f64)> = Vec::new();
 
         for interval in intervals {
 
             if (interval.1 - interval.0) < interval_limit {
-                panic!("Reached minimum interval limit. Failed to converge. [a, b] = [{}, {}], f(a) = {}, f(b) = {}", interval.0, interval.1, f(interval.0), f(interval.1));
+                return Err(anyhow!("Reached minimum interval limit. Failed to converge. [a, b] = [{}, {}], f(a) = {}, f(b) = {}",
+                    interval.0, interval.1, f(interval.0), f(interval.1)));
             }
 
             let a = interval.0;
@@ -277,15 +315,18 @@ pub mod chebyshev {
                 let a2 = a + (b - a)/2.;
                 let b2 = b;
 
-                let (intervals_new, coefficients_new) = chebyshev_subdivide(f, vec![(a1, b1), (a2, b2)], N0, epsilon, N_max, interval_limit);
-
-                for (i, c) in intervals_new.iter().zip(coefficients_new) {
-                    intervals_out.push(*i);
-                    coefficients.push(c.clone());
-                }
+                let result = chebyshev_subdivide(f, vec![(a1, b1), (a2, b2)], N0, epsilon, N_max, interval_limit);
+                if let Ok((intervals_new, coefficients_new)) = result {
+                    for (i, c) in intervals_new.iter().zip(coefficients_new) {
+                        intervals_out.push(*i);
+                        coefficients.push(c.clone());
+                    }
+                } else {
+                    return result
+                };
             }
         }
-        return (intervals_out, coefficients)
+        return Ok((intervals_out, coefficients))
     }
 
     pub fn chebyshev_approximate(a_j: Array1<f64>, a: f64, b: f64, x: f64) -> f64 {
