@@ -155,7 +155,7 @@ pub mod chebyshev {
             let xn = x - f(x)/df(x);
             let err = (xn - x)*(xn - x);
             x = xn;
-            if err < epsilon {
+            if err.sqrt() < epsilon {
                 return Ok(x);
             }
         }
@@ -258,7 +258,7 @@ pub mod chebyshev {
                     let correction = root_refined - *root;
 
                     if ((correction/root_refined).abs() < 1.) & (root_refined >= a) & (root_refined <= b) {
-                        polished_roots.push(*root);
+                        polished_roots.push(root_refined);
                     }
                 };
             }
