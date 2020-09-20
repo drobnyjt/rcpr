@@ -17,7 +17,7 @@ Many users will simply need only two functions:
 
 find_roots_with_newton_polishing(G, F, DF, a, b, N0, epsilon, N_max, complex_threshold, truncation threshold, interval_limit, far_from_zero)
 
-* G: &dyn Fn(f64) -> f64: the approriately scaled function to find roots of.
+* G: &dyn Fn(f64) -> f64: the approriately scaled function to find roots of. For polynomials of degree n on the interval [0, b] , a good rule of thumb for scaling function is (1 + (r/a)^(n-1)) where a is an appropriate scaling factor to keep r O(1).
 * F: &dyn Fn(f64) -> f64: the original function.
 * DF: &dyn Fn(f64) -> f64: the derivative of the original funciton w.r.t. the independent variable.
 * a, b: f64, f64: the lower and upper bounds of the interval to find roots in
