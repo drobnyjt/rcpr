@@ -31,5 +31,5 @@ find_roots_with_newton_polishing(G, F, DF, a, b, N0, epsilon, N_max, complex_thr
 
 real_polynomial_roots(c, complex_threshold)
 
-* c: the coefficients of the polynomial in monomial form, starting with degree n, n-1, ... 1, 0
+* c: the coefficients of the polynomial in monomial form, with the first coefficient being 1, starting with degree n, n-1, ... 1, 0
 * complex_threshold: f64: the threshold of the imaginary part of roots that are near-real that is tolerated
