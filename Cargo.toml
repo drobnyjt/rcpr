@@ -8,7 +8,7 @@ edition = "2018"
 
 [dependencies]
 ndarray = "0.13.1"
-ndarray-linalg = {version = "0.12.1", features=["netlib"]}
+ndarray-linalg = {version = "0.12.1"}
 time = ""
 cached_proc_macro = "0.4.0"
 cached = "0.19.0"
