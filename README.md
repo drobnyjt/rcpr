@@ -1,7 +1,7 @@
 # rcpr
-Rust Chebyshev Proxy Rootfinder: A robust global rootfinder using adaptive Chebyshev interpolation with automatic subdivision that accurately finds all roots of a smooth function F(x) on [a, b] using the Chebyshev-Frobenius companion matrix. This work is based on the text Solving Transcendental Equations by John P Boyd.
+Rust Chebyshev Proxy Rootfinder: A robust global rootfinder using adaptive Chebyshev interpolation with automatic subdivision that accurately finds all roots of a smooth function F(x) on [a, b] using the Chebyshev-Frobenius companion matrix. Also included is a polynomial rootfinder for polynoials in monomial form via the monomial companion matrix. This work is based on the text _Solving Transcendental Equations_ (2013) by John P Boyd.
 
-rcpr has a number of dependencies. Most notably, ndarray, ndarray-linalg (which requires LAPACK and BLAS). rcpr has not yet succesfully been compiled on Windows.
+`rcpr` has a number of dependencies. Most notably, ndarray, ndarray-linalg (which requires LAPACK and BLAS). rcpr has not yet succesfully been compiled on Windows.
 
 You can use rcpr as follows:
 
