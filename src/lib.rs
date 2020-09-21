@@ -75,7 +75,7 @@ pub mod chebyshev {
 
         let A_jk = monomial_frobenius_matrix(c_j.into());
 
-        if let Ok((roots, _)) = A_jk.clone().eig() {
+        if let Ok((roots, _)) = A_jk.eig() {
             Ok(roots.iter().filter(|x| x.im <= complex_threshold).map(|x| x.re).collect::<Vec<f64>>())
         } else {
             Err(anyhow!("Eigenvalue calculation failed to find roots. Check coefficients."))
@@ -159,7 +159,7 @@ pub mod chebyshev {
                 return Ok(x);
             }
         }
-        return Err(anyhow!("Newton failed to converge after {} iterations.", iter_max))
+        Err(anyhow!("Newton failed to converge after {} iterations.", iter_max))
     }
 
     pub fn newton_iteration(f: &dyn Fn(f64) -> f64, df: &dyn Fn(f64) -> f64, x0: f64) -> f64 {
@@ -201,17 +201,26 @@ pub mod chebyshev {
                 return a_j.slice(s![..a_j.len() - index]).to_owned()
             }
         }
-        return a_j
+        a_j
     }
 
     pub fn find_roots(f: &dyn Fn(f64) -> f64, a: f64, b: f64, N0: usize, epsilon: f64, N_max: usize, complex_threshold: f64, truncation_threshold: f64, interval_limit: f64, far_from_zero: f64) -> Result<Vec<f64>, anyhow::Error> {
 
-        assert!(b > a, "[{}, {}] is not a valid interval.");
+        assert!(b > a, "[{}, {}] is not a valid interval.", a, b);
+
+        assert!(N0 > 0, "N0 cannot be zero.");
+
+        assert!(N_max >= N0, "N_max cannot be smaller than N0.");
+
+        assert!(complex_threshold >= 0.);
+        assert!(truncation_threshold >= 0.);
+        assert!(interval_limit >= 0.);
+        assert!(far_from_zero >= 0.);
 
         if let Ok((intervals, coefficients)) = chebyshev_subdivide(&f, vec![(a, b)], N0, epsilon, N_max, interval_limit) {
             let mut roots: Vec<f64> = Vec::new();
 
-            for (i, c) in intervals.iter().zip(coefficients) {
+            for (i, c) in intervals.iter().zip(coefficients).filter(|(_, c)| !c.is_empty() ) {
 
                 let xk = lobatto_grid(i.0, i.1, c.len() - 1);
                 let fxk: Vec<f64> = xk.iter().map(|&x| f(x)).collect();
@@ -225,8 +234,8 @@ pub mod chebyshev {
                 let a_j = truncate_coefficients(c, truncation_threshold);
 
                 //If a_j is 1, then its eigenvalue is simply itself.
-                if a_j.len() <= 1 {
-                    break
+                if a_j.len() == 1 {
+                    roots.push(a_j[0])
                 }
 
                 let A = chebyshev_frobenius_matrix(a_j);
@@ -254,7 +263,7 @@ pub mod chebyshev {
 
             for root in roots.iter() {
 
-                if let Ok(root_refined) = newton_polish(&f, &df, *root, 100, 1E-13){
+                if let Ok(root_refined) = newton_polish(&f, &df, *root, 100, epsilon){
                     let correction = root_refined - *root;
 
                     if ((correction/root_refined).abs() < 1.) & (root_refined >= a) & (root_refined <= b) {
@@ -278,13 +287,7 @@ pub mod chebyshev {
     }
 
     fn lobatto_grid(a: f64, b: f64, N: usize) -> Vec<f64> {
-
-        let mut xk: Vec<f64> = vec![0.; N + 1];
-
-        for k in 0..=N {
-            xk[k] = (b - a)/2.*(PI*k as f64/N as f64).cos() + (b + a)/2.;
-        }
-        xk
+        (0..=N).map(|k| (b - a)/2.*(PI*k as f64/N as f64).cos() + (b + a)/2.).collect::<Vec<f64>>()
     }
 
     pub fn chebyshev_subdivide(f: &dyn Fn(f64) -> f64, intervals: Vec<(f64, f64)>, N0: usize, epsilon: f64, N_max: usize, interval_limit: f64) -> Result<(Vec<(f64, f64)>, Vec<Array1<f64>>), anyhow::Error> {
@@ -325,7 +328,7 @@ pub mod chebyshev {
                 };
             }
         }
-        return Ok((intervals_out, coefficients))
+        Ok((intervals_out, coefficients))
     }
 
     pub fn chebyshev_approximate(a_j: Array1<f64>, a: f64, b: f64, x: f64) -> f64 {
