@@ -29,7 +29,7 @@ Many users will simply need only two functions:
 * `interval_limit: f64`: if the subdivision algorithm produces an interval below this length, the function will return an Error and abort
 * `far_from_zero: f64`: if G(x) evaluated at all the Lobatto grid points on an interval [c,d] is further than this value from zero, that interval will be assumed to have no roots contained within it
 
-`real_polynomial_roots(c, complex_threshold)`
+`real_polynomial_roots(c, complex_threshold) -> Result<Vec<f64>, anyhow::Error>`
 
 * `c: Vec<f64>` the coefficients of the polynomial in monomial form, with the first coefficient being 1, starting with degree n, n-1, ... 1, 0. For example, for the polynomial `P(x) = x^2 + 5x + 2`, `c = vec![1., 5., 2.]`
 * `complex_threshold: f64`: the threshold of the imaginary part of roots that are near-real that is tolerated
