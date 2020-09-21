@@ -42,5 +42,5 @@ Args:
 * `complex_threshold: f64`: the threshold of the imaginary part of roots that are near-real that is tolerated
 
 Returns:
-* `Result<Vec<f64>, anyhow::Error>`: if successful, returns a vec of the real roots of F(x) on the interval [a,b], "polished" using Newton's method to absolute accuracy epsilon.
+* `Result<Vec<f64>, anyhow::Error>`: if successful, returns a vec of the real roots of P(x)
 
