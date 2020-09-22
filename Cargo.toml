@@ -8,11 +8,18 @@ edition = "2018"
 
 [dependencies]
 ndarray = "0.13.1"
-ndarray-linalg = {version = "0.12.1", features=["netlib"]}
-time = ""
+ndarray-linalg = {version = "0.12.1"}
 cached_proc_macro = "0.4.0"
 cached = "0.19.0"
 anyhow = "1.0"
+openblas-src = {version  = "0.9", optional = true}
+netlib-src = {version  = "0.8", optional = true}
+intel-mkl-src = {version = "0.6.0+mkl2020.1", optional = true}
 
 [lib]
 crate-type = ["rlib"]
+
+[features]
+openblas = ["openblas-src"]
+netlib = ["netlib-src"]
+intel-mkl = ["intel-mkl-src"]

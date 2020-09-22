@@ -1,7 +1,14 @@
 #![allow(non_snake_case)]
 
-#[macro_use(s, array)]
+#[macro_use(s)]
 extern crate ndarray;
+
+#[cfg(feature = "openblas")]
+extern crate openblas_src;
+#[cfg(feature = "netlib")]
+extern crate netlib_src;
+#[cfg(feature = "intel_mkl")]
+extern crate intel_mkl_src;
 
 #[cfg(test)]
 mod tests {
@@ -10,8 +17,6 @@ mod tests {
     use std::f64::consts::PI;
     use ndarray_linalg::*;
     use cached::proc_macro::cached;
-
-    use time::Instant;
     pub use crate::chebyshev::*;
 
     fn g(x: f64) -> f64 {
@@ -38,13 +43,9 @@ mod tests {
         let interval_limit = 1E-9;
         let far_from_zero = 1E2;
 
-        let start = Instant::now();
-
         let roots = find_roots_with_newton_polishing(&g, &f, &df, a, b, N0, epsilon, N_max, complex_threshold, truncation_threshold, interval_limit, far_from_zero).unwrap();
-        let stop = Instant::now();
         let num_roots = roots.len();
 
-        println!("Chebyshev adaptive interpolation with subdivision took {} s", start.to(stop).as_seconds_f32());
         println!("Identified {} roots.", num_roots)
     }
 
