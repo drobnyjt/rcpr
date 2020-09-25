@@ -2,6 +2,7 @@
 
 #[macro_use(s)]
 extern crate ndarray;
+extern crate ndarray_linalg;
 
 #[cfg(feature = "openblas")]
 extern crate openblas_src;
@@ -13,18 +14,25 @@ extern crate intel_mkl_src;
 #[cfg(test)]
 mod tests {
 
-    use ndarray::{Array2, Array1};
+    #[cfg(feature = "openblas")]
+    extern crate openblas_src;
+    #[cfg(feature = "netlib")]
+    extern crate netlib_src;
+    #[cfg(feature = "intel_mkl")]
+    extern crate intel_mkl_src;
+
+    use ndarray::*;
     use std::f64::consts::PI;
     use ndarray_linalg::*;
     use cached::proc_macro::cached;
     pub use crate::chebyshev::*;
 
     fn g(x: f64) -> f64 {
-        f(x)*(-x.abs()).exp()
+        f(x)/(1. + x.powf(6.))
     }
 
     fn f(x: f64) -> f64 {
-        (x - 2.)*(x + 3.)*(x - 8.)*(x + 1E-4)*(x - 1E-5)*(x + 1.)*(x + 10.)*(x*x).sin()
+        (x - 2.)*(x + 3.)*(x - 8.)*(x + 1E-4)*(x - 1E-5)*(x + 1.)*(x + 10.)
     }
 
     fn df(x: f64) -> f64 {
@@ -32,13 +40,13 @@ mod tests {
     }
 
     #[test]
-    fn test_chebyshev() {
+    fn test_rootfinding_with_newton() {
         let a = -10.;
         let b = 10.;
         let N0 = 2;
         let epsilon = 1E-9;
         let truncation_threshold = 1E-13;
-        let N_max = 100;
+        let N_max = 1000;
         let complex_threshold = 1E-13;
         let interval_limit = 1E-9;
         let far_from_zero = 1E2;
@@ -46,7 +54,31 @@ mod tests {
         let roots = find_roots_with_newton_polishing(&g, &f, &df, a, b, N0, epsilon, N_max, complex_threshold, truncation_threshold, interval_limit, far_from_zero).unwrap();
         let num_roots = roots.len();
 
-        println!("Identified {} roots.", num_roots)
+        println!("Identified {} roots.", num_roots);
+        for root in roots.iter() {
+            println!("Root: {}", root);
+        }
+    }
+
+    #[test]
+    fn test_rootfinding_with_secant() {
+        let a = -10.;
+        let b = 10.;
+        let N0 = 2;
+        let epsilon = 1E-9;
+        let truncation_threshold = 1E-13;
+        let N_max = 1000;
+        let complex_threshold = 1E-13;
+        let interval_limit = 1E-9;
+        let far_from_zero = 1E2;
+
+        let roots = find_roots_with_secant_polishing(&g, &f, a, b, N0, epsilon, N_max, complex_threshold, truncation_threshold, interval_limit, far_from_zero).unwrap();
+        let num_roots = roots.len();
+
+        println!("Identified {} roots.", num_roots);
+        for root in roots.iter() {
+            println!("Root: {}", root);
+        }
     }
 
     #[test]
@@ -163,6 +195,55 @@ pub mod chebyshev {
         Err(anyhow!("Newton failed to converge after {} iterations.", iter_max))
     }
 
+    pub fn secant_polish(f: &dyn Fn(f64) -> f64, x0: f64, iter_max: usize, epsilon: f64) -> Result<f64, anyhow::Error> {
+
+        if x0.is_nan() {
+            return Err(anyhow!("Newton iteration guess is NaN. Check preceding calculation."))
+        }
+
+        let mut x1 = x0;
+        let mut x2 = x0*1.5;
+
+        for _ in 1..=iter_max {
+
+            let x3 = x2 - f(x2)*(x2 - x1)/(f(x2) - f(x1));
+
+            let err = (x3 - x2)*(x3 - x2);
+
+            if err.sqrt() < epsilon {
+                return Ok(x3)
+            }
+            x1 = x2;
+            x2 = x3;
+        }
+        Err(anyhow!("Newton failed to converge after {} iterations.", iter_max))
+    }
+
+    pub fn bisection_polish(f: &dyn Fn(f64) -> f64, a0: f64, b0: f64, iter_max: usize, epsilon: f64) -> Result<f64, anyhow::Error> {
+        let mut a = a0;
+        let mut b = b0;
+        let c = (a + b)/2.;
+        let fc = f(c);
+        assert!(f(a)*f(b) < 0., "There is an even number of roots of f(x) on the interval [{}, {}]. Cannot use bisection.", a, b);
+        assert!(a > b, "[{}, {}] is not a valid interval.");
+
+        for _ in 1..iter_max {
+            let c = (a + b)/2.;
+            let fc = f(c);
+            if fc.abs() < epsilon {
+                return Ok(c)
+            }
+            if f(a)*fc < 0. {
+                let b = c;
+            } else if fc*f(b) < 0. {
+                let a = c;
+            } else {
+                return Err(anyhow!("Bisection failed to find root in interval [{}, {}]", a, b))
+            }
+        }
+        Err(anyhow!("Bisection failed to converge."))
+    }
+
     pub fn newton_iteration(f: &dyn Fn(f64) -> f64, df: &dyn Fn(f64) -> f64, x0: f64) -> f64 {
         x0 - f(x0)/df(x0)
     }
@@ -265,6 +346,29 @@ pub mod chebyshev {
             for root in roots.iter() {
 
                 if let Ok(root_refined) = newton_polish(&f, &df, *root, 100, epsilon){
+                    println!("{} {}", root, root_refined);
+                    let correction = root_refined - *root;
+
+                    if ((correction/root_refined).abs() < 1.) & (root_refined >= a) & (root_refined <= b) {
+                        polished_roots.push(root_refined);
+                    }
+                };
+            }
+            Ok(polished_roots)
+        } else {
+            Err(anyhow!("Subdivision reached interval limit without converging. Consider relaxing epsilon or increasing N_max. F(a) = {} F(b) = {}", g(a), g(b)))
+        }
+    }
+
+    pub fn find_roots_with_secant_polishing(g: &dyn Fn(f64) -> f64, f: &dyn Fn(f64) -> f64, a: f64, b: f64, N0: usize, epsilon: f64, N_max: usize, complex_threshold: f64, truncation_threshold: f64, interval_limit: f64, far_from_zero: f64) -> Result<Vec<f64>, anyhow::Error> {
+
+        if let Ok(roots) = find_roots(g, a, b, N0, epsilon, N_max, complex_threshold, truncation_threshold, interval_limit, far_from_zero) {
+            let mut polished_roots: Vec<f64> = Vec::new();
+
+            for root in roots.iter() {
+
+                if let Ok(root_refined) = secant_polish(&f, *root, 100, epsilon){
+                    println!("{} {}", root, root_refined);
                     let correction = root_refined - *root;
 
                     if ((correction/root_refined).abs() < 1.) & (root_refined >= a) & (root_refined <= b) {
