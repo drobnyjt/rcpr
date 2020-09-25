@@ -346,7 +346,6 @@ pub mod chebyshev {
             for root in roots.iter() {
 
                 if let Ok(root_refined) = newton_polish(&f, &df, *root, 100, epsilon){
-                    println!("{} {}", root, root_refined);
                     let correction = root_refined - *root;
 
                     if ((correction/root_refined).abs() < 1.) & (root_refined >= a) & (root_refined <= b) {
@@ -368,7 +367,6 @@ pub mod chebyshev {
             for root in roots.iter() {
 
                 if let Ok(root_refined) = secant_polish(&f, *root, 100, epsilon){
-                    println!("{} {}", root, root_refined);
                     let correction = root_refined - *root;
 
                     if ((correction/root_refined).abs() < 1.) & (root_refined >= a) & (root_refined <= b) {
