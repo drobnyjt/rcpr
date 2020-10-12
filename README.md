@@ -13,7 +13,7 @@ Include the line:
 `use rcpr::chebyshev::*;`
 in your rust source file.
 
-Many users will simply need only two functions: 
+Many users will simply need one of three functions: `find_roots_with_newton_polishing`, `real_polynomial_roots`, `find_roots_with_secant_polishing`. These three functions are documented below:
 
 `find_roots_with_newton_polishing(G, F, DF, a, b, N0, epsilon, N_max, complex_threshold, truncation threshold, interval_limit, far_from_zero) -> Result<Vec<f64>, anyhow::Error>`
 
