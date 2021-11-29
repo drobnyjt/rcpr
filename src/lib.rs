@@ -102,7 +102,7 @@ pub mod chebyshev {
     use std::f64::consts::PI;
     use ndarray_linalg::*;
     use cached::proc_macro::cached;
-    use anyhow::*;
+    use anyhow::{Result, Context, anyhow};
 
     pub fn real_polynomial_roots(c_j: Vec<f64>, complex_threshold: f64) -> Result<Vec<f64>, anyhow::Error> {
 
