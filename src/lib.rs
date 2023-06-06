@@ -1,36 +1,16 @@
 #![allow(non_snake_case)]
 
-#[macro_use(s)]
-extern crate ndarray;
-extern crate ndarray_linalg;
-
-#[cfg(feature = "openblas")]
-extern crate openblas_src;
-#[cfg(feature = "netlib")]
-extern crate netlib_src;
-#[cfg(feature = "intel_mkl")]
-extern crate intel_mkl_src;
-
 #[cfg(test)]
 mod tests {
-
-    #[cfg(feature = "openblas")]
-    extern crate openblas_src;
-    #[cfg(feature = "netlib")]
-    extern crate netlib_src;
-    #[cfg(feature = "intel_mkl")]
-    extern crate intel_mkl_src;
-
-    use ndarray::*;
-    use std::f64::consts::PI;
-    use ndarray_linalg::*;
     use cached::proc_macro::cached;
     pub use crate::chebyshev::*;
 
     fn g(x: f64) -> f64 {
-        f(x)/(1. + x.powf(6.))
+        f(x)/(10. + x.powf(6.))
     }
 
+    //This is an adversarial function; it has 7 roots, 1 of which is on an end of the interval
+    //and two which are both very near zero and very near each other.
     fn f(x: f64) -> f64 {
         (x - 2.)*(x + 3.)*(x - 8.)*(x + 1E-4)*(x - 1E-5)*(x + 1.)*(x + 10.)
     }
@@ -44,20 +24,23 @@ mod tests {
         let a = -10.;
         let b = 10.;
         let N0 = 2;
-        let epsilon = 1E-9;
-        let truncation_threshold = 1E-13;
-        let N_max = 1000;
-        let complex_threshold = 1E-13;
-        let interval_limit = 1E-9;
-        let far_from_zero = 1E2;
+        let epsilon = 1E-3;
+        let truncation_threshold = 1E-9;
+        let N_max = 10000;
+        let complex_threshold = 1e-6;
+        let interval_limit = 1E-12;
+        let far_from_zero = 1E9;
 
-        let roots = find_roots_with_newton_polishing(&g, &f, &df, a, b, N0, epsilon, N_max, complex_threshold, truncation_threshold, interval_limit, far_from_zero).unwrap();
+        let roots = find_roots_piecewise_with_newton_polishing(&g, &f, &df, vec![(a, -2E-4), (-2E-4, 0.0), (0.0, 2E-5), (2E-5, b)], N0, epsilon, N_max, complex_threshold, truncation_threshold, interval_limit, far_from_zero).unwrap();
         let num_roots = roots.len();
 
         println!("Identified {} roots.", num_roots);
         for root in roots.iter() {
             println!("Root: {}", root);
         }
+        println!("Sum of roots: {}; Calculated value: {}", roots.iter().sum::<f64>(), -4.00009);
+        assert_eq!(7, num_roots, "Rootfinder should find 7 roots. It found {}", num_roots);
+        assert!((roots.iter().sum::<f64>() - -4.00009).powf(2.) < 0.01, "Sum of all roots should be -4.00009. Rootfinder found {}", roots.iter().sum::<f64>());
     }
 
     #[test]
@@ -68,24 +51,28 @@ mod tests {
         let epsilon = 1E-9;
         let truncation_threshold = 1E-13;
         let N_max = 1000;
-        let complex_threshold = 1E-13;
+        let complex_threshold = 1E-9;
         let interval_limit = 1E-9;
         let far_from_zero = 1E2;
 
-        let roots = find_roots_piecewise_with_secant_polishing(&g, &f, vec![(a, b/2.), (b/2., b)], N0, epsilon, N_max, complex_threshold, truncation_threshold, interval_limit, far_from_zero).unwrap();
+        let roots = find_roots_piecewise_with_secant_polishing(&g, &f, vec![(a, -2E-4), (-2E-4, 0.0), (0.0, 2E-5), (2E-5, b)], N0, epsilon, N_max, complex_threshold, truncation_threshold, interval_limit, far_from_zero).unwrap();
         let num_roots = roots.len();
 
         println!("Identified {} roots.", num_roots);
         for root in roots.iter() {
             println!("Root: {}", root);
         }
+        println!("Sum of roots: {}; Calculated value: {}", roots.iter().sum::<f64>(), -4.00009);
+        assert_eq!(7, num_roots, "Rootfinder should find 7 roots. It found {}", num_roots);
+        assert!((roots.iter().sum::<f64>() - -4.00009).powf(2.) < 0.01, "Sum of all roots should be -4.00009. Rootfinder found {}", roots.iter().sum::<f64>());
     }
 
     #[test]
     fn test_polynom() {
-        ///(x - 1)^2*(x + 3)*(x + 3.2)
-        let g = |x: f64| x.powf(4.) + 4.2*x.powf(3.) - 1.8*x.powf(2.) - 13.*x + 9.6;
-        let c_j: Vec<f64> = vec![1., 5.2, 3.4, -9.6];//, -9.6, 3.4, 5.2, 1.];
+
+        //let g = |x: f64| x.powf(4.) + 4.2*x.powf(3.) - 1.8*x.powf(2.) - 13.*x + 9.6;
+
+        let c_j: Vec<f64> = vec![1., 5.2, 3.4, -9.6];
 
         let roots = real_polynomial_roots(c_j, 1E-12).unwrap();
 
@@ -98,9 +85,12 @@ mod tests {
 }
 
 pub mod chebyshev {
-    use ndarray::{Array2, Array1};
+
+    const NEWTON_MAX_ITERATIONS: usize = 1000;
+    const SECANT_MAX_ITERATIONS: usize = 1000;
+
+    use nalgebra::{DMatrix, DVector};
     use std::f64::consts::PI;
-    use ndarray_linalg::*;
     use cached::proc_macro::cached;
     use anyhow::{Result, Context, anyhow};
 
@@ -108,11 +98,10 @@ pub mod chebyshev {
 
         let A_jk = monomial_frobenius_matrix(c_j.into());
 
-        if let Ok((roots, _)) = A_jk.eig() {
-            Ok(roots.iter().filter(|x| x.im <= complex_threshold).map(|x| x.re).collect::<Vec<f64>>())
-        } else {
-            Err(anyhow!("Eigenvalue calculation failed to find roots. Check coefficients."))
-        }
+        let roots = A_jk.complex_eigenvalues();
+
+        Ok(roots.iter().filter(|x| x.im <= complex_threshold).map(|x| x.re).collect::<Vec<f64>>())
+
     }
 
     fn p(j: usize, N: usize) -> f64 {
@@ -132,45 +121,45 @@ pub mod chebyshev {
     }
 
     #[cached]
-    fn interpolation_matrix(N: usize) -> Array2<f64> {
+    fn interpolation_matrix(N: usize) -> DMatrix<f64> {
 
-        let mut I_jk: Array2<f64> = Array2::zeros((N + 1, N + 1));
+        let mut I_jk: DMatrix<f64> = DMatrix::zeros(N + 1, N + 1);
 
         for j in 0..=N {
             for k in 0..=N {
-                I_jk[[j, k]] = 2./p(j, N)/p(k, N)/N as f64*(j as f64*PI*k as f64/N as f64).cos();
+                I_jk[(j, k)] = 2./p(j, N)/p(k, N)/N as f64*(j as f64*PI*k as f64/N as f64).cos();
             }
         }
         I_jk
     }
 
-    pub fn monomial_frobenius_matrix(c_j: Array1<f64>) -> Array2<f64> {
+    pub fn monomial_frobenius_matrix(c_j: DVector<f64>) -> DMatrix<f64> {
         let N: usize = c_j.len() - 1;
 
-        let mut A_jk: Array2<f64> = Array2::zeros((N, N));
+        let mut A_jk: DMatrix<f64> = DMatrix::zeros(N, N);
 
         for k in 1..N {
-            A_jk[[k, k - 1]] = 1.0;
+            A_jk[(k, k - 1)] = 1.0;
         }
 
         for k in 0..N {
-            A_jk[[k, N - 1]] = -c_j[N - k]
+            A_jk[(k, N - 1)] = -c_j[N - k]
         }
         A_jk
     }
 
-    pub fn chebyshev_frobenius_matrix(a_j: Array1<f64>) -> Array2<f64> {
+    pub fn chebyshev_frobenius_matrix(a_j: DVector<f64>) -> DMatrix<f64> {
         let N: usize = a_j.len() - 1;
-        let mut A_jk: Array2<f64> = Array2::zeros((N, N));
+        let mut A_jk: DMatrix<f64> = DMatrix::zeros(N, N);
 
         for k in 0..N {
-            A_jk[[0, k]] = delta(1, k as i32);
-            A_jk[[N - 1, k]] = (-1.)*(a_j[k]/2./a_j[N]) + (1./2.)*delta(k as i32, N as i32 - 2);
+            A_jk[(0, k)] = delta(1, k as i32);
+            A_jk[(N - 1, k)] = (-1.)*(a_j[k]/2./a_j[N]) + (1./2.)*delta(k as i32, N as i32 - 2);
         }
 
         for k in 0..N {
             for j in 1..N - 1 {
-                A_jk[[j, k]] = (delta(j as i32, k as i32 + 1) + delta(j as i32, k as i32 - 1))/2.;
+                A_jk[(j, k)] = (delta(j as i32, k as i32 + 1) + delta(j as i32, k as i32 - 1))/2.;
             }
         }
         A_jk
@@ -216,7 +205,7 @@ pub mod chebyshev {
             x1 = x2;
             x2 = x3;
         }
-        Err(anyhow!("Newton failed to converge after {} iterations.", iter_max))
+        Err(anyhow!("Secant failed to converge after {} iterations.", iter_max))
     }
 
     pub fn bisection_polish(f: &dyn Fn(f64) -> f64, a0: f64, b0: f64, iter_max: usize, epsilon: f64) -> Result<f64, anyhow::Error> {
@@ -225,7 +214,7 @@ pub mod chebyshev {
         let c = (a + b)/2.;
         let fc = f(c);
         assert!(f(a)*f(b) < 0., "There is an even number of roots of f(x) on the interval [{}, {}]. Cannot use bisection.", a, b);
-        assert!(a > b, "[{}, {}] is not a valid interval.");
+        assert!(a > b, "[{}, {}] is not a valid interval.", a, b);
 
         for _ in 1..iter_max {
             let c = (a + b)/2.;
@@ -258,7 +247,7 @@ pub mod chebyshev {
 
     pub fn newton_armijo_line_search_iteration(f: &dyn Fn(f64) -> f64, df: &dyn Fn(f64) -> f64, N: usize, x0: f64) -> f64 {
 
-        let alphas: Vec<f64> = (1..=N).map(|j| 1./(2.).powf((j as f64 - 1.)/2.)).collect();
+        let alphas: Vec<f64> = (1..=N).map(|j| 1./(2_f64).powf((j as f64 - 1.)/2.)).collect();
 
         let x1: Vec<f64> = alphas.iter().map(|a| newton_armijo_iteration(f, df, *a, x0)).collect();
 
@@ -276,11 +265,20 @@ pub mod chebyshev {
         x1[index_min]
     }
 
-    fn truncate_coefficients(a_j: Array1<f64>, epsilon: f64) -> Array1<f64> {
+    fn truncate_coefficients(a_j: DVector<f64>, epsilon: f64) -> DVector<f64> {
 
-        for (index, &a) in a_j.to_vec().iter().rev().enumerate() {
+        for (index, &a) in a_j.iter().rev().enumerate() {
             if a.abs() > epsilon {
-                return a_j.slice(s![..a_j.len() - index]).to_owned()
+
+                let stop: usize = a_j.len() - index - 1;
+
+                return DVector::from(
+                    a_j.iter()
+                    .enumerate()
+                    .filter(|(i, _)| i <= &stop)
+                    .map(|(_, &a)| a)
+                    .collect::<Vec<f64>>()
+                )
             }
         }
         a_j
@@ -308,12 +306,12 @@ pub mod chebyshev {
                 let xk = lobatto_grid(i.0, i.1, c.len() - 1);
                 let fxk: Vec<f64> = xk.iter().map(|&x| f(x)).collect();
 
-                //Test if all chebyshev interpolants are far from zero
+                //Test if all chebyshev interpolants in this interval are far from zero
                 if fxk.iter().all(|fx| fx.abs() > far_from_zero) {
                     break
                 }
 
-                //Truncare chebyshev coefficients if below threshold
+                //Truncate chebyshev coefficients if below threshold
                 let a_j = truncate_coefficients(c, truncation_threshold);
 
                 //If a_j is 1, then its eigenvalue is simply itself.
@@ -323,14 +321,12 @@ pub mod chebyshev {
 
                 let A = chebyshev_frobenius_matrix(a_j);
 
-                if let Ok((eigenvalues, _)) = A.clone().eig() {
-                    for eigenvalue in eigenvalues.iter() {
-                        if (eigenvalue.re.abs() < 1.) && (eigenvalue.im.abs() < complex_threshold){
-                            roots.push(eigenvalue.re*(i.1 - i.0)/2. + (i.1 + i.0)/2.)
-                        }
+                let eigenvalues = A.complex_eigenvalues();
+
+                for eigenvalue in eigenvalues.iter() {
+                    if (eigenvalue.re.abs() < 1.) && (eigenvalue.im.abs() < complex_threshold){
+                        roots.push(eigenvalue.re*(i.1 - i.0)/2. + (i.1 + i.0)/2.)
                     }
-                } else {
-                    return Err(anyhow!("Eigenvalue calculation failed. Consider scaling the function to prevent singularities and high dynamic range."))
                 }
             }
             Ok(roots)
@@ -345,8 +341,9 @@ pub mod chebyshev {
             let mut polished_roots: Vec<f64> = Vec::new();
 
             for root in roots.iter() {
+                
+                if let Ok(root_refined) = newton_polish(&f, &df, *root, NEWTON_MAX_ITERATIONS, epsilon){
 
-                if let Ok(root_refined) = newton_polish(&f, &df, *root, 100, epsilon){
                     let correction = root_refined - *root;
 
                     if ((correction/root_refined).abs() < 1.) & (root_refined >= a) & (root_refined <= b) {
@@ -370,7 +367,31 @@ pub mod chebyshev {
 
             for root in roots.iter() {
 
-                if let Ok(root_refined) = secant_polish(&f, *root, 100, epsilon){
+                if let Ok(root_refined) = secant_polish(&f, *root, SECANT_MAX_ITERATIONS, epsilon){
+                    let correction = root_refined - *root;
+
+                    if ((correction/root_refined).abs() < 1.) & (root_refined >= a) & (root_refined <= b) {
+                        polished_roots.push(root_refined);
+                    }
+                };
+            }
+            Ok(polished_roots)
+        } else {
+            Err(anyhow!("Subdivision reached interval limit without converging. Consider relaxing epsilon or increasing N_max. F(a) = {} F(b) = {}", g(a), g(b)))
+        }
+    }
+
+    pub fn find_roots_piecewise_with_newton_polishing(g: &dyn Fn(f64) -> f64, f: &dyn Fn(f64) -> f64, df: &dyn Fn(f64) -> f64, intervals: Vec<(f64, f64)>, N0: usize, epsilon: f64, N_max: usize, complex_threshold: f64, truncation_threshold: f64, interval_limit: f64, far_from_zero: f64) -> Result<Vec<f64>, anyhow::Error> {
+
+        let a = intervals[0].0;
+        let b = intervals[intervals.len() - 1].1;
+
+        if let Ok(roots) = find_roots(g, intervals, N0, epsilon, N_max, complex_threshold, truncation_threshold, interval_limit, far_from_zero) {
+            let mut polished_roots: Vec<f64> = Vec::new();
+
+            for root in roots.iter() {
+
+                if let Ok(root_refined) = newton_polish(&f, &df, *root, NEWTON_MAX_ITERATIONS, epsilon){
                     let correction = root_refined - *root;
 
                     if ((correction/root_refined).abs() < 1.) & (root_refined >= a) & (root_refined <= b) {
@@ -391,7 +412,7 @@ pub mod chebyshev {
 
             for root in roots.iter() {
 
-                if let Ok(root_refined) = secant_polish(&f, *root, 100, epsilon){
+                if let Ok(root_refined) = secant_polish(&f, *root, SECANT_MAX_ITERATIONS, epsilon){
                     let correction = root_refined - *root;
 
                     if ((correction/root_refined).abs() < 1.) & (root_refined >= a) & (root_refined <= b) {
@@ -405,21 +426,33 @@ pub mod chebyshev {
         }
     }
 
-    fn chebyshev_coefficients(f: &dyn Fn(f64) -> f64, a: f64, b: f64, N: usize) -> Array1<f64> {
-
+    fn chebyshev_coefficients(f: &dyn Fn(f64) -> f64, a: f64, b: f64, N: usize) -> DVector<f64> {
+        //Given a function and an interval [a, b], returns a vector of the Chebyshev interpolation
+        //coefficients on that interval.
         let xk = lobatto_grid(a, b, N);
         let I_jk = interpolation_matrix(N);
-        let f_xk: Array1<f64> = xk.iter().map(|&x| f(x)).collect();
+        let f_xk: DVector<f64> = DVector::<f64>::from(xk.iter().map(|&x| f(x)).collect::<Vec<f64>>());
 
-        I_jk.dot(&f_xk)
+        I_jk*f_xk
     }
 
     fn lobatto_grid(a: f64, b: f64, N: usize) -> Vec<f64> {
+        //Returns a Lobatto Grid on the interval [a, b].
         (0..=N).map(|k| (b - a)/2.*(PI*k as f64/N as f64).cos() + (b + a)/2.).collect::<Vec<f64>>()
     }
 
-    pub fn chebyshev_subdivide(f: &dyn Fn(f64) -> f64, intervals: Vec<(f64, f64)>, N0: usize, epsilon: f64, N_max: usize, interval_limit: f64) -> Result<(Vec<(f64, f64)>, Vec<Array1<f64>>), anyhow::Error> {
-        let mut coefficients: Vec<Array1<f64>> = Vec::new();
+    pub fn chebyshev_subdivide(f: &dyn Fn(f64) -> f64, intervals: Vec<(f64, f64)>, N0: usize, epsilon: f64, N_max: usize, interval_limit: f64) -> Result<(Vec<(f64, f64)>, Vec<DVector<f64>>), anyhow::Error> {
+        //Adaptive Chebyshev Series interpolation with automatic subdivision.
+        //
+        //This function automatically divides the domain by halves into subintervals
+        //such that the function F on each subinterval is well approximated (within
+        //epsilon) by a Chebyshev series of degree N_max or less.
+    
+        //For each (sub)interval, the adaptive Chebyshev interpolation algorithm,
+        //which uses degree-doubling, is used to find a Chebyshev series of degree
+        //N0*2^(N_iterations) < N_max on the interval that is within epsilon of F.
+    
+        let mut coefficients: Vec<DVector<f64>> = Vec::new();
         let mut intervals_out: Vec<(f64, f64)> = Vec::new();
 
         for interval in intervals {
@@ -459,8 +492,8 @@ pub mod chebyshev {
         Ok((intervals_out, coefficients))
     }
 
-    pub fn chebyshev_approximate(a_j: Array1<f64>, a: f64, b: f64, x: f64) -> f64 {
-
+    pub fn chebyshev_approximate(a_j: DVector<f64>, a: f64, b: f64, x: f64) -> f64 {
+        //
         let N = a_j.len() - 1;
 
         let xi = (2.*x - (b + a))/(b - a);
@@ -479,8 +512,9 @@ pub mod chebyshev {
         (b0 - b3 + a_j[0])/2.
     }
 
-    fn chebyshev_adaptive(f: &dyn Fn(f64) -> f64, a: f64, b: f64, N0: usize, epsilon: f64, N_max: usize) -> (Array1<f64>, f64) {
-
+    fn chebyshev_adaptive(f: &dyn Fn(f64) -> f64, a: f64, b: f64, N0: usize, epsilon: f64, N_max: usize) -> (DVector<f64>, f64) {
+        //Adaptive Chebyshev approximation, which starts from degree N0 and doubles
+        //the degree each iteration.
         let mut a_0 = chebyshev_coefficients(f, a, b, N0);
         let mut N0 = N0;
 
@@ -491,7 +525,7 @@ pub mod chebyshev {
 
             //Error is defined as sum(delta) where delta_2N = fN(x) - f2N(x)
             //Since the N0..2N0 terms of fN are zero, this sum can be split into two pieces
-            let error = a_0.iter().enumerate().map(|(i, a)| (a - a_1[i]).abs()).sum::<f64>() + a_1.slice(s![N0..]).iter().map(|a| a.abs()).sum::<f64>();
+            let error = a_0.iter().enumerate().map(|(i, a)| (a - a_1[i]).abs()).sum::<f64>() + a_1.iter().enumerate().filter(|(i, _)| i >= &N0).map(|(_, a)| a.abs()).sum::<f64>();
 
             if (error < epsilon) || (2*N1 >= N_max/2) {
                 return (a_1, error)
