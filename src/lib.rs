@@ -86,8 +86,8 @@ mod tests {
 
 pub mod chebyshev {
 
-    const NEWTON_MAX_ITERATIONS: usize = 100;
-    const SECANT_MAX_ITERATIONS: usize = 100;
+    const NEWTON_MAX_ITERATIONS: usize = 1000;
+    const SECANT_MAX_ITERATIONS: usize = 1000;
 
     use nalgebra::{DMatrix, DVector};
     use std::f64::consts::PI;
