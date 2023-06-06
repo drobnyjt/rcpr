@@ -272,8 +272,13 @@ pub mod chebyshev {
 
                 let stop: usize = a_j.len() - index - 1;
 
-                return DVector::from(a_j.iter().enumerate().filter(|(i, _)| i <= &stop).map(|(_, &a)| a).collect::<Vec<f64>>())
-
+                return DVector::from(
+                    a_j.iter()
+                    .enumerate()
+                    .filter(|(i, _)| i <= &stop)
+                    .map(|(_, &a)| a)
+                    .collect::<Vec<f64>>()
+                )
             }
         }
         a_j
@@ -344,8 +349,6 @@ pub mod chebyshev {
                     if ((correction/root_refined).abs() < 1.) & (root_refined >= a) & (root_refined <= b) {
                         polished_roots.push(root_refined);
                     }
-                } else {
-                    polished_roots.push(*root);
                 };
             }
             Ok(polished_roots)
@@ -415,8 +418,6 @@ pub mod chebyshev {
                     if ((correction/root_refined).abs() < 1.) & (root_refined >= a) & (root_refined <= b) {
                         polished_roots.push(root_refined);
                     }
-                } else {
-                    polished_roots.push(*root);
                 };
             }
             Ok(polished_roots)
