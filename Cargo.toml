@@ -1,25 +1,18 @@
 [package]
 name = "rcpr"
-version = "0.1.0"
-authors = ["Jarat <drobny2@illinois.edu>"]
+version = "0.2.0"
+authors = ["Jarat <jdrobny@tae.com>"]
 edition = "2018"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-ndarray = "0.13.1"
-ndarray-linalg = {version = "0.12.1"}
+nalgebra = "0.32.2"
 cached_proc_macro = "0.4.0"
 cached = "0.19.0"
 anyhow = "1.0"
-openblas-src = {version  = "0.9", optional = true}
-netlib-src = {version  = "0.8", optional = true}
-intel-mkl-src = {version = "0.6.0+mkl2020.1", optional = true}
 
 [lib]
 crate-type = ["rlib"]
 
 [features]
-openblas = ["openblas-src"]
-netlib = ["netlib-src"]
-intel-mkl = ["intel-mkl-src"]
