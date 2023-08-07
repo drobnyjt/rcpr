@@ -72,15 +72,33 @@ mod tests {
 
         //let g = |x: f64| x.powf(4.) + 4.2*x.powf(3.) - 1.8*x.powf(2.) - 13.*x + 9.6;
 
-        let c_j: Vec<f64> = vec![1., 5.2, 3.4, -9.6];
+        //let c_j: Vec<f64> = vec![1., 5.2, 3.4, -9.6];
 
-        let roots = real_polynomial_roots(c_j, 1E-12).unwrap();
+        let e = 1.602e-19;
+        let p = 1e-10;
+        let alpha = 4e-58;
+        let beta = 4e-97;
+
+        //let c_j: Vec<f64> = vec![1., -p*p, alpha/e, 1., beta/e];
+
+        let c_j: Vec<f64> = vec![1., 0., -p*p, 0., alpha/e, 0., 0., 0., -beta/e];
+
+        let roots = real_polynomial_roots(c_j.clone(), 1E-9).unwrap();
 
         println!("Roots are: 1, -3, -3.2");
 
         for root in roots.iter() {
             println!("Found root: {}", root);
         }
+    }
+
+    fn evaluate_polynom(coefficients: &Vec<f64>, root: f64) -> f64 {
+        let mut sum = 0.;
+
+        for (i, c) in coefficients.iter().rev().enumerate() {
+            sum += c*root.powi(i as i32);
+        }
+        sum
     }
 }
 
@@ -96,10 +114,11 @@ pub mod chebyshev {
 
     pub fn real_polynomial_roots(c_j: Vec<f64>, complex_threshold: f64) -> Result<Vec<f64>, anyhow::Error> {
 
-        let A_jk = monomial_frobenius_matrix(c_j.into());
+        //let A_jk = monomial_frobenius_matrix(c_j.into());
 
-        let roots = A_jk.complex_eigenvalues();
+        let B_jk = monomial_fiedler_matrix(c_j.into());
 
+        let roots = B_jk.complex_eigenvalues();
         Ok(roots.iter().filter(|x| x.im <= complex_threshold).map(|x| x.re).collect::<Vec<f64>>())
 
     }
@@ -145,6 +164,37 @@ pub mod chebyshev {
         for k in 0..N {
             A_jk[(k, N - 1)] = -c_j[N - k]
         }
+        A_jk
+    }
+
+    fn monomial_fiedler_matrix(c_j: DVector<f64>) -> DMatrix<f64> {
+        let N: usize = c_j.len() - 1;
+
+        let mut A_jk: DMatrix<f64> = DMatrix::zeros(N, N);
+
+        //Subdiagonals
+
+        for k in (3..N).step_by(2) {
+            A_jk[(k, k - 2)] = 1.0;
+        }
+
+        for k in (2..N).step_by(2) {
+            A_jk[(k, k - 1)] = -c_j[k + 1];
+        }
+
+        //Superdiagonals
+
+        for k in (0..N-2).step_by(2) {
+            A_jk[(k, k + 2)] = 1.0;
+        }
+
+        for k in (0..N-1).step_by(2) {
+            A_jk[(k, k + 1)] = -c_j[k + 2];
+        }
+
+        A_jk[(0, 0)] = -c_j[1];
+        A_jk[(1, 0)] = 1.;
+
         A_jk
     }
 
@@ -341,7 +391,7 @@ pub mod chebyshev {
             let mut polished_roots: Vec<f64> = Vec::new();
 
             for root in roots.iter() {
-                
+
                 if let Ok(root_refined) = newton_polish(&f, &df, *root, NEWTON_MAX_ITERATIONS, epsilon){
 
                     let correction = root_refined - *root;
@@ -447,11 +497,11 @@ pub mod chebyshev {
         //This function automatically divides the domain by halves into subintervals
         //such that the function F on each subinterval is well approximated (within
         //epsilon) by a Chebyshev series of degree N_max or less.
-    
+
         //For each (sub)interval, the adaptive Chebyshev interpolation algorithm,
         //which uses degree-doubling, is used to find a Chebyshev series of degree
         //N0*2^(N_iterations) < N_max on the interval that is within epsilon of F.
-    
+
         let mut coefficients: Vec<DVector<f64>> = Vec::new();
         let mut intervals_out: Vec<(f64, f64)> = Vec::new();
 
