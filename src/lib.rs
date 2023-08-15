@@ -72,18 +72,9 @@ mod tests {
 
         //let g = |x: f64| x.powf(4.) + 4.2*x.powf(3.) - 1.8*x.powf(2.) - 13.*x + 9.6;
 
-        //let c_j: Vec<f64> = vec![1., 5.2, 3.4, -9.6];
+        let c_j: Vec<f64> = vec![1., 5.2, 3.4, -9.6];
 
-        let e = 1.602e-19;
-        let p = 1e-10;
-        let alpha = 4e-58;
-        let beta = 4e-97;
-
-        //let c_j: Vec<f64> = vec![1., -p*p, alpha/e, 1., beta/e];
-
-        let c_j: Vec<f64> = vec![1., 0., -p*p, 0., alpha/e, 0., 0., 0., -beta/e];
-
-        let roots = real_polynomial_roots(c_j.clone(), 1E-9).unwrap();
+        let roots = real_polynomial_roots(c_j.clone(), 1E-20).unwrap();
 
         println!("Roots are: 1, -3, -3.2");
 
@@ -118,8 +109,11 @@ pub mod chebyshev {
 
         let B_jk = monomial_fiedler_matrix(c_j.into());
 
+        println!("{}", B_jk);
+
         let roots = B_jk.complex_eigenvalues();
-        Ok(roots.iter().filter(|x| x.im <= complex_threshold).map(|x| x.re).collect::<Vec<f64>>())
+
+        Ok(roots.iter().filter(|x| (x.im).abs() <= complex_threshold).map(|x| x.re).collect::<Vec<f64>>())
 
     }
 
