@@ -48,12 +48,12 @@ mod tests {
         let a = -10.;
         let b = 10.;
         let N0 = 2;
-        let epsilon = 1E-9;
-        let truncation_threshold = 1E-13;
-        let N_max = 1000;
-        let complex_threshold = 1E-9;
-        let interval_limit = 1E-9;
-        let far_from_zero = 1E2;
+        let epsilon = 1E-3;
+        let truncation_threshold = 1E-9;
+        let N_max = 10000;
+        let complex_threshold = 1e-6;
+        let interval_limit = 1E-12;
+        let far_from_zero = 1E9;
 
         let roots = find_roots_piecewise_with_secant_polishing(&g, &f, vec![(a, -2E-4), (-2E-4, 0.0), (0.0, 2E-5), (2E-5, b)], N0, epsilon, N_max, complex_threshold, truncation_threshold, interval_limit, far_from_zero).unwrap();
         let num_roots = roots.len();
@@ -99,6 +99,7 @@ pub mod chebyshev {
     const SECANT_MAX_ITERATIONS: usize = 1000;
 
     use nalgebra::{DMatrix, DVector};
+    use nalgebra::linalg::balancing::balance_parlett_reinsch;
     use std::f64::consts::PI;
     use cached::proc_macro::cached;
     use anyhow::{Result, Context, anyhow};
@@ -107,7 +108,9 @@ pub mod chebyshev {
 
         //let A_jk = monomial_frobenius_matrix(c_j.into());
 
-        let B_jk = monomial_fiedler_matrix(c_j.into());
+        let mut B_jk = monomial_fiedler_matrix(c_j.into());
+
+        balance_parlett_reinsch(&mut B_jk);
 
         println!("{}", B_jk);
 
@@ -363,7 +366,9 @@ pub mod chebyshev {
                     roots.push(a_j[0])
                 }
 
-                let A = chebyshev_frobenius_matrix(a_j);
+                let mut A = chebyshev_frobenius_matrix(a_j);
+
+                balance_parlett_reinsch(&mut A);
 
                 let eigenvalues = A.complex_eigenvalues();
 
