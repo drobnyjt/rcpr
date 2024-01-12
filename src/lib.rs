@@ -112,8 +112,6 @@ pub mod chebyshev {
 
         balance_parlett_reinsch(&mut B_jk);
 
-        println!("{}", B_jk);
-
         let roots = B_jk.complex_eigenvalues();
 
         Ok(roots.iter().filter(|x| (x.im).abs() <= complex_threshold).map(|x| x.re).collect::<Vec<f64>>())
