@@ -106,8 +106,6 @@ pub mod chebyshev {
 
     pub fn real_polynomial_roots(c_j: Vec<f64>, complex_threshold: f64) -> Result<Vec<f64>, anyhow::Error> {
 
-        //let A_jk = monomial_frobenius_matrix(c_j.into());
-
         let mut B_jk = monomial_fiedler_matrix(c_j.into());
 
         balance_parlett_reinsch(&mut B_jk);
