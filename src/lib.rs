@@ -48,12 +48,12 @@ mod tests {
         let a = -10.;
         let b = 10.;
         let N0 = 2;
-        let epsilon = 1E-9;
-        let truncation_threshold = 1E-13;
-        let N_max = 1000;
-        let complex_threshold = 1E-9;
-        let interval_limit = 1E-9;
-        let far_from_zero = 1E2;
+        let epsilon = 1E-3;
+        let truncation_threshold = 1E-9;
+        let N_max = 10000;
+        let complex_threshold = 1e-6;
+        let interval_limit = 1E-12;
+        let far_from_zero = 1E9;
 
         let roots = find_roots_piecewise_with_secant_polishing(&g, &f, vec![(a, -2E-4), (-2E-4, 0.0), (0.0, 2E-5), (2E-5, b)], N0, epsilon, N_max, complex_threshold, truncation_threshold, interval_limit, far_from_zero).unwrap();
         let num_roots = roots.len();
@@ -74,13 +74,22 @@ mod tests {
 
         let c_j: Vec<f64> = vec![1., 5.2, 3.4, -9.6];
 
-        let roots = real_polynomial_roots(c_j, 1E-12).unwrap();
+        let roots = real_polynomial_roots(c_j.clone(), 1E-20).unwrap();
 
         println!("Roots are: 1, -3, -3.2");
 
         for root in roots.iter() {
             println!("Found root: {}", root);
         }
+    }
+
+    fn evaluate_polynom(coefficients: &Vec<f64>, root: f64) -> f64 {
+        let mut sum = 0.;
+
+        for (i, c) in coefficients.iter().rev().enumerate() {
+            sum += c*root.powi(i as i32);
+        }
+        sum
     }
 }
 
@@ -90,17 +99,20 @@ pub mod chebyshev {
     const SECANT_MAX_ITERATIONS: usize = 1000;
 
     use nalgebra::{DMatrix, DVector};
+    use nalgebra::linalg::balancing::balance_parlett_reinsch;
     use std::f64::consts::PI;
     use cached::proc_macro::cached;
     use anyhow::{Result, Context, anyhow};
 
     pub fn real_polynomial_roots(c_j: Vec<f64>, complex_threshold: f64) -> Result<Vec<f64>, anyhow::Error> {
 
-        let A_jk = monomial_frobenius_matrix(c_j.into());
+        let mut B_jk = monomial_fiedler_matrix(c_j.into());
 
-        let roots = A_jk.complex_eigenvalues();
+        balance_parlett_reinsch(&mut B_jk);
 
-        Ok(roots.iter().filter(|x| x.im <= complex_threshold).map(|x| x.re).collect::<Vec<f64>>())
+        let roots = B_jk.complex_eigenvalues();
+
+        Ok(roots.iter().filter(|x| (x.im).abs() <= complex_threshold).map(|x| x.re).collect::<Vec<f64>>())
 
     }
 
@@ -145,6 +157,37 @@ pub mod chebyshev {
         for k in 0..N {
             A_jk[(k, N - 1)] = -c_j[N - k]
         }
+        A_jk
+    }
+
+    fn monomial_fiedler_matrix(c_j: DVector<f64>) -> DMatrix<f64> {
+        let N: usize = c_j.len() - 1;
+
+        let mut A_jk: DMatrix<f64> = DMatrix::zeros(N, N);
+
+        //Subdiagonals
+
+        for k in (3..N).step_by(2) {
+            A_jk[(k, k - 2)] = 1.0;
+        }
+
+        for k in (2..N).step_by(2) {
+            A_jk[(k, k - 1)] = -c_j[k + 1];
+        }
+
+        //Superdiagonals
+
+        for k in (0..N-2).step_by(2) {
+            A_jk[(k, k + 2)] = 1.0;
+        }
+
+        for k in (0..N-1).step_by(2) {
+            A_jk[(k, k + 1)] = -c_j[k + 2];
+        }
+
+        A_jk[(0, 0)] = -c_j[1];
+        A_jk[(1, 0)] = 1.;
+
         A_jk
     }
 
@@ -319,7 +362,9 @@ pub mod chebyshev {
                     roots.push(a_j[0])
                 }
 
-                let A = chebyshev_frobenius_matrix(a_j);
+                let mut A = chebyshev_frobenius_matrix(a_j);
+
+                balance_parlett_reinsch(&mut A);
 
                 let eigenvalues = A.complex_eigenvalues();
 
@@ -341,7 +386,7 @@ pub mod chebyshev {
             let mut polished_roots: Vec<f64> = Vec::new();
 
             for root in roots.iter() {
-                
+
                 if let Ok(root_refined) = newton_polish(&f, &df, *root, NEWTON_MAX_ITERATIONS, epsilon){
 
                     let correction = root_refined - *root;
@@ -447,11 +492,11 @@ pub mod chebyshev {
         //This function automatically divides the domain by halves into subintervals
         //such that the function F on each subinterval is well approximated (within
         //epsilon) by a Chebyshev series of degree N_max or less.
-    
+
         //For each (sub)interval, the adaptive Chebyshev interpolation algorithm,
         //which uses degree-doubling, is used to find a Chebyshev series of degree
         //N0*2^(N_iterations) < N_max on the interval that is within epsilon of F.
-    
+
         let mut coefficients: Vec<DVector<f64>> = Vec::new();
         let mut intervals_out: Vec<(f64, f64)> = Vec::new();
 
