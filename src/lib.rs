@@ -98,7 +98,7 @@ pub mod chebyshev {
     const NEWTON_MAX_ITERATIONS: usize = 1000;
     const SECANT_MAX_ITERATIONS: usize = 1000;
 
-    use nalgebra::{DMatrix, DVector};
+    use nalgebra::{DMatrix, DVector, Schur};
     use nalgebra::linalg::balancing::balance_parlett_reinsch;
     use std::f64::consts::PI;
     use cached::proc_macro::cached;
@@ -366,12 +366,17 @@ pub mod chebyshev {
 
                 balance_parlett_reinsch(&mut A);
 
-                let eigenvalues = A.complex_eigenvalues();
-
-                for eigenvalue in eigenvalues.iter() {
-                    if (eigenvalue.re.abs() < 1.) && (eigenvalue.im.abs() < complex_threshold){
-                        roots.push(eigenvalue.re*(i.1 - i.0)/2. + (i.1 + i.0)/2.)
+                let eps = 1e-9;
+                let nmax = 1000;
+                if let Some(schur_matrix) = Schur::try_new(A, eps, nmax) {
+                    let eigenvalues = schur_matrix.complex_eigenvalues();
+                    for eigenvalue in eigenvalues.iter() {
+                        if (eigenvalue.re.abs() < 1.) && (eigenvalue.im.abs() < complex_threshold){
+                            roots.push(eigenvalue.re*(i.1 - i.0)/2. + (i.1 + i.0)/2.)
+                        }
                     }
+                } else {
+                    break
                 }
             }
             Ok(roots)
