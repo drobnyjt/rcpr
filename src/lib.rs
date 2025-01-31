@@ -366,7 +366,7 @@ pub mod chebyshev {
 
                 balance_parlett_reinsch(&mut A);
 
-                let eps = 1e-9;
+                let eps = 1e-15;
                 let nmax = 1000;
                 if let Some(schur_matrix) = Schur::try_new(A, eps, nmax) {
                     let eigenvalues = schur_matrix.complex_eigenvalues();
@@ -376,12 +376,17 @@ pub mod chebyshev {
                         }
                     }
                 } else {
-                    break
+                    //println!("{} {} {} {} ", a, b, f(a), f(b));
+                    if let Ok(subroots) = find_roots(&f, vec![(i.0, (i.1 - i.0)/2.), ((i.1 - i.0)/2., i.1)], N0, epsilon, N_max, complex_threshold, truncation_threshold, interval_limit, far_from_zero) {
+                        for root in subroots {
+                            roots.push(root)
+                        }
+                    }
                 }
             }
             Ok(roots)
         } else {
-            Err(anyhow!("Subdivision reached interval limit without converging. Consider relaxing epsilon or increasing N_max. F(a) = {} F(b) = {}", f(a), f(b)))
+            Err(anyhow!("Subdivision reached interval limit without converging. Consider relaxing epsilon or increasing N_max. a = {} b = {} F(a) = {} F(b) = {}", a, b, f(a), f(b)))
         }
     }
 
