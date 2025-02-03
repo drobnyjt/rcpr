@@ -493,8 +493,8 @@ pub mod chebyshev {
     }
 
     fn chebyshev_coefficients(f: &dyn Fn(f64) -> f64, a: f64, b: f64, N: usize) -> DVector<f64> {
-        //Given a function and an interval [a, b], returns a vector of the Chebyshev interpolation
-        //coefficients on that interval.
+        //Given a function f and an interval [a, b], returns a vector of the Chebyshev interpolation
+        //coefficients on that interval of order N.
         let xk = lobatto_grid(a, b, N);
         let I_jk = interpolation_matrix(N);
         let f_xk: DVector<f64> = DVector::<f64>::from(xk.iter().map(|&x| f(x)).collect::<Vec<f64>>());
@@ -503,7 +503,7 @@ pub mod chebyshev {
     }
 
     fn lobatto_grid(a: f64, b: f64, N: usize) -> Vec<f64> {
-        //Returns a Lobatto Grid on the interval [a, b].
+        //Returns a Lobatto Grid on the interval [a, b] of order N.
         (0..=N).map(|k| (b - a)/2.*(PI*k as f64/N as f64).cos() + (b + a)/2.).collect::<Vec<f64>>()
     }
 
@@ -579,8 +579,10 @@ pub mod chebyshev {
     }
 
     fn chebyshev_adaptive(f: &dyn Fn(f64) -> f64, a: f64, b: f64, N0: usize, epsilon: f64, N_max: usize) -> (DVector<f64>, f64) {
-        //Adaptive Chebyshev approximation, which starts from degree N0 and doubles
-        //the degree each iteration.
+        //Adaptive Chebyshev approximation of the function f on the interval [a, b], which starts from degree N0 and doubles
+        //the degree each iteration until the error is less than epsilon, starting with order N0 returning the Chebyshev coefficients a if
+        //convergence is reached before the degree exceeds N_max.
+        //
         let mut a_0 = chebyshev_coefficients(f, a, b, N0);
         let mut N0 = N0;
 
