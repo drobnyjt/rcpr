@@ -93,6 +93,48 @@ mod tests {
     }
 }
 
+pub mod python {
+    pub use crate::chebyshev::*;
+    use pyo3::prelude::*;
+    use pyo3::types::*;
+    use pyo3::pyfunction;
+
+    #[pymodule]
+    pub fn rcpr_py(_py: Python, m: &PyModule) -> PyResult<()> {
+        m.add_function(wrap_pyfunction!(find_all_roots, m)?)?;
+        Ok(())
+    }
+
+    #[pyfunction]
+    fn call_python_function(py: Python<'_>, f: Py<PyAny>, x: f64) -> f64 {
+        f.call1(py, (x,))
+            .expect("Failed to call Python function.")
+            .downcast::<PyFloat>(py)
+            .expect("Failed to convert return value to f64.")
+            .value()
+    }
+
+    #[pyfunction]
+    pub fn find_all_roots(py: Python<'_>, python_function: Py<PyAny>, a: f64, b: f64, N0: usize, epsilon: f64, N_max: usize, complex_threshold: f64, truncation_threshold: f64, interval_limit: f64, far_from_zero: f64) -> Vec<f64> {
+        
+        let f = | x | call_python_function(py, python_function.clone(), x);
+        
+        find_roots_with_secant_polishing(
+            &f,
+            &f, 
+            a,
+            b,
+            N0,
+            epsilon,
+            N_max,
+            complex_threshold,
+            truncation_threshold,
+            interval_limit,
+            far_from_zero
+        ).expect("Failed to find roots.")
+    }
+}
+
 pub mod chebyshev {
 
     const NEWTON_MAX_ITERATIONS: usize = 1000;
@@ -256,10 +298,9 @@ pub mod chebyshev {
     pub fn bisection_polish(f: &dyn Fn(f64) -> f64, a0: f64, b0: f64, iter_max: usize, epsilon: f64) -> Result<f64, anyhow::Error> {
         let mut a = a0;
         let mut b = b0;
-        let c = (a + b)/2.;
-        let fc = f(c);
+
         assert!(f(a)*f(b) < 0., "There is an even number of roots of f(x) on the interval [{}, {}]. Cannot use bisection.", a, b);
-        assert!(a > b, "[{}, {}] is not a valid interval.", a, b);
+        assert!(b > a, "[{}, {}] is not a valid interval.", a, b);
 
         for _ in 1..iter_max {
             let c = (a + b)/2.;
@@ -268,9 +309,9 @@ pub mod chebyshev {
                 return Ok(c)
             }
             if f(a)*fc < 0. {
-                let b = c;
+                b = c;
             } else if fc*f(b) < 0. {
-                let a = c;
+                a = c;
             } else {
                 return Err(anyhow!("Bisection failed to find root in interval [{}, {}]", a, b))
             }
@@ -353,7 +394,7 @@ pub mod chebyshev {
                 //Test if all chebyshev interpolants in this interval are far from zero
                 //If yes, skip this interval
                 if fxk.iter().all(|fx| fx.abs() > far_from_zero) {
-                    break
+                    continue
                 }
 
                 //Truncate chebyshev coefficients if below threshold
@@ -362,7 +403,7 @@ pub mod chebyshev {
                 //If len(a_j) is 1, then its eigenvalue is simply itself, and the interval can be skipped.
                 if a_j.len() == 1 {
                     roots.push(a_j[0]*(i.1 - i.0)/2. + (i.1 + i.0)/2.);
-                    break
+                    continue
                 }
 
                 let mut A = chebyshev_frobenius_matrix(a_j);
