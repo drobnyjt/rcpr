@@ -3,6 +3,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 from numba import jit
 import time
+from matplotlib.colors import SymLogNorm, LogNorm
+from scipy.interpolate import RectBivariateSpline
 
 PI = np.pi
 Q = 1.602E-19
@@ -46,7 +48,7 @@ def krc_morse(r, D=5.4971e-20, alpha=1.4198e10, r0=2.782e-10, k=7e10, x0=0.75e-1
     return  smootherstep(r, k, x0)*morse(r, D, alpha, r0) + smootherstep(r, -k, x0)*screened_coulomb(r, a=lindhard_screening_length(1, 28), z1=1, z2=28)
 
 @jit
-def morse(r, D, alpha, r0):
+def morse(r, D=5.4971e-20, alpha=1.4198e10, r0=2.782e-10):
     return  D*(np.exp(-2.*alpha*(r - r0)) - 2.*np.exp(-alpha*(r - r0)))
 
 @jit
@@ -93,8 +95,7 @@ def screened_coulomb(r, a=lindhard_screening_length(1, 1), phi=krc, z1=1, z2=1):
 
 @jit
 def distance_of_closest_approach_function(r, V, p, Er):
-    value = ((r/ANGSTROM)**2*(1. - V(r)/Er) - (p/ANGSTROM)**2)*((r/ANGSTROM)**2 + 1.0)
-    return value
+    return ((r/ANGSTROM)**2*(1. - (V(r)/Q)/(Er/Q)) - (p/ANGSTROM)**2)*((r/ANGSTROM) + 1.0)
 
 @jit
 def G(u, V, p, Er, r0):
@@ -113,15 +114,15 @@ def G(u, V, p, Er, r0):
     return 4*p*u/(r0*np.sqrt(1-V(r0/(1 - u**2))/Er-p**2*(-u**2+1)**2/r0**2))
 
 def distance_of_closest_approach(V, p, Er):
-    a = 1.0
-    b = 10.0
+    a = 0.0
+    b = 9.0
     N0 = 4
     N_max = 1000
-    epsilon = 0.01
+    epsilon = 0.001
     interval_limit = 1e-20
-    far_from_zero = 1e24
-    complex_threshold = 1e-9
-    truncation_threshold = 1e-20
+    far_from_zero = 1e6
+    complex_threshold = 1e-6
+    truncation_threshold = 1e-6
 
     f = lambda s: distance_of_closest_approach_function(s*ANGSTROM, V, p, Er)
     
@@ -169,50 +170,49 @@ def gauss_legendre_5(V, p, Er):
     x = x/2 + 1/2
 
     theta = np.pi - np.sum([w_*G(x_, V, p, Er, r0) for w_, x_ in zip(w, x)])
-    return theta
+    return r0, theta
 
-def run_simulation(mask=None):
-    Za = 1
-    Zb = 28
-    Ma = 1.008
-    Mb = 58.6934
+def run_simulation(
+    Za=1,
+    Zb=28,
+    Ma=1.008,
+    Mb=58.6934,
+    n=0.0914,
+    num_energies=128,
+    num_p=128,
+    min_E=-6,
+    max_E=-1
+    ):
+
     mu = Mb/(Ma + Mb)
     a = lindhard_screening_length(Za, Zb)
-    num_energies = 256
-    num_p = 256
-    min_p = 6.0
-    max_p = 8.0
-    reduced_energies = np.logspace(-3, -6, num_energies)
+
+    min_p = 0.0
+    max_p = np.pi*(n)**(-1./3.)
+
+    reduced_energies = np.logspace(min_E, max_E, num_energies)
     energies = reduced_energies/(LINDHARD_REDUCED_ENERGY_PREFACTOR*a*mu/Za/Zb)
     relative_energies = energies*Mb/(Ma + Mb)
-
 
     p = np.linspace(min_p, max_p, num_p)*1e-10
 
     theta = np.zeros((num_p, num_energies))
     doca = np.zeros((num_p, num_energies))
 
-    if mask is None:
-        for i, Er_ in enumerate(relative_energies):
-            print(f'{np.round(i/len(relative_energies)*100., 1)}%')
-            for j, p_ in enumerate(p):
-                theta[j, i] = gauss_legendre_5(krc_morse, p_, Er_)
-                doca[j, i] = distance_of_closest_approach(krc_morse, p_, Er_)
-    else:
-        for i, Er_ in enumerate(relative_energies):
-            print(f'{np.round(i/len(relative_energies)*100., 1)}%')
-            for j, p_ in enumerate(p):
-                if mask[j, i]:
-                    theta[j, i] = gauss_legendre_5(krc_morse, p_, Er_)
-                    doca[j, i] = distance_of_closest_approach(krc_morse, p_, Er_)
+    for i, Er_ in enumerate(relative_energies):
+        print(f'{np.round(i/len(relative_energies)*100., 1)}%')
+        for j, p_ in enumerate(p):
+            doca[j, i], theta[j, i] = gauss_legendre_5(morse, p_, Er_)
     
     return theta, doca, relative_energies, p
 
 run_calc = True
+n = 0.0914
+pmax = np.pi*(n)**(-1./3.)
 
 if run_calc:
     start = time.time()
-    theta, doca, relative_energies, p = run_simulation()
+    theta, doca, relative_energies, p = run_simulation(n=n)
     stop = time.time()
     print(stop - start)
     np.savetxt('theta.txt', theta)
@@ -226,22 +226,51 @@ else:
     p = np.genfromtxt('p.txt')
 
 plt.figure(1)
-plt.pcolormesh(p/ANGSTROM, relative_energies/Q, np.sin(theta.transpose()/2.)**2, vmin=0., vmax=1.)
-plt.gca().set_yscale('log')
+plt.pcolormesh(
+    p/ANGSTROM,
+    relative_energies/Q,
+    np.sin(theta.transpose()/2.)**2,
+    )
+plt.xlabel('p [A]')
+plt.ylabel('Er [eV]')
+#plt.gca().set_yscale('log')
 plt.title('Energy Transfer')
-plt.colorbar()
+plt.colorbar(label='T [eV]')
 
 plt.figure(2)
 plt.pcolormesh(p/ANGSTROM, relative_energies/Q, doca.transpose()/ANGSTROM)
-plt.gca().set_yscale('log')
+plt.xlabel('p [A]')
+plt.ylabel('Er [eV]')
+#plt.gca().set_yscale('log')
 plt.title('DOCA')
-plt.colorbar()
+plt.colorbar(label='DOCA [A]')
 
 plt.figure(3)
-plt.pcolormesh(p/ANGSTROM, relative_energies/Q, theta.transpose(), vmin=-2*np.pi, vmax=np.pi)
+plt.pcolormesh(
+    p/ANGSTROM,
+    relative_energies/Q,
+    np.mod(
+        theta.transpose(),
+        2*np.pi
+    ),
+)
+plt.xlabel('p [A]')
+plt.ylabel('Er [eV]')
 plt.gca().set_yscale('log')
 plt.title('Scattering Angle')
-plt.colorbar()
+plt.colorbar(label='theta [rad]')
+
+plt.figure(4)
+plt.pcolormesh(p/ANGSTROM, relative_energies/Q, p/doca.transpose())
+plt.xlabel('p [A]')
+plt.ylabel('Er [eV]')
+plt.gca().set_yscale('log')
+plt.title('p/doca')
+plt.colorbar(label='p/doca')
+
+theta[np.isnan(theta)] = np.pi
+
+theta_interpolate = RectBivariateSpline(p/ANGSTROM, relative_energies/Q, theta)
+energy_loss_interpolate = RectBivariateSpline(p/ANGSTROM, relative_energies/Q, np.sin(theta/2.)**2)
 
 plt.show()
-exit()
