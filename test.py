@@ -29,6 +29,26 @@ LINDHARD_REDUCED_ENERGY_PREFACTOR = 4.*PI*EPS0/Q/Q
 #[[{{"MORSE"={{D=5.4971E-20, r0=2.782E-10, alpha=1.4198E10}}}}]]
 #[[{{"KRC_MORSE"={{D=5.4971E-20, r0=2.782E-10, alpha=1.4198E10, k=7E10, x0=0.75E-10}}}}]]
 
+@jit
+def piecewise(r, r0=2.0e-10, E0=2.5*Q, V0=100*Q):
+    if r < r0:
+        return V0 - (E0 + V0)/r0 * r
+    elif r0 <= r < 2*r0:
+        return E0/r0*r - 2*E0
+    else:
+        return 0.0
+
+@jit
+def inverse_quadratic(r, b=0.996055, c=0.793701):
+    if r == 0:
+        return 1e9
+    else:
+        return 16.0*(b/(r/ANGSTROM)**2 - c/(r/ANGSTROM))*Q
+    
+@jit
+def lj(r, epsilon=2.5*Q, sigma=2.5*ANGSTROM):
+    return 4*epsilon*((sigma/r)**12 - (sigma/r)**6)
+
 @jit(nopython=True)
 def smootherstep(x, k, x0):
     x_transformed = x*k/8.
@@ -95,8 +115,8 @@ def screened_coulomb(r, a=lindhard_screening_length(1, 1), phi=krc, z1=1, z2=1):
     return (1./4./np.pi/EPS0)*z1*z2*Q**2/r*phi(r/a)
 
 @jit(nopython=True)
-def distance_of_closest_approach_function(r, V, p, Er):
-    return ((r/ANGSTROM)**2*(1. - (V(r)/Q)/(Er/Q)) - (p/ANGSTROM)**2)*((r/ANGSTROM) + 1.0)
+def distance_of_closest_approach_function(r, V, p, Er, n=1):
+    return ((r/ANGSTROM)**2*(1. - (V(r)/Q)/(Er/Q)) - (p/ANGSTROM)**2)*((r/ANGSTROM)**n + 1.0)
 
 @jit(nopython=True)
 def G(u, V, p, Er, r0):
@@ -116,12 +136,12 @@ def G(u, V, p, Er, r0):
 
 def distance_of_closest_approach(V, p, Er, use_newton=False):
     a = 0.0
-    b = 30.0
-    N0 = 8
+    b = 10.0
+    N0 = 3
     N_max = 1000
-    epsilon = 0.1
+    epsilon = 0.001
     interval_limit = 1e-24
-    far_from_zero = 1e6
+    far_from_zero = 1e9
     complex_threshold = 1e-6
     truncation_threshold = 1e-6
 
@@ -173,9 +193,11 @@ def gauss_legendre_5(V, p, Er, use_newton=False):
     #transform w, x to [-1, 1] from [0, 1]
     w /= 2.
     x = x/2 + 1/2
-
-    theta = np.pi - np.sum([w_*G(x_, V, p, Er, r0) for w_, x_ in zip(w, x)])
-    return r0, theta
+    try:
+        theta = np.pi - np.sum([w_*G(x_, V, p, Er, r0) for w_, x_ in zip(w, x)])
+        return r0, theta
+    except ZeroDivisionError:
+        return r0, np.nan
 
 def run_simulation(
     Za=1,
@@ -183,10 +205,10 @@ def run_simulation(
     Ma=1.008,
     Mb=58.6934,
     n=0.0914,
-    num_energies=256,
-    num_p=256,
-    min_E=-14,
-    max_E=-1,
+    num_energies=32,
+    num_p=32,
+    min_E=-4,
+    max_E=-2,
     potential=morse,
     use_newton=False
     ):
@@ -196,7 +218,7 @@ def run_simulation(
 
     min_p = 0.0
     max_p = np.pi*(n)**(-1./3.)
-    max_p = 25.0
+    max_p = 6.0
 
     reduced_energies = np.logspace(min_E, max_E, num_energies)
     energies = reduced_energies/(LINDHARD_REDUCED_ENERGY_PREFACTOR*a*mu/Za/Zb)
@@ -214,13 +236,12 @@ def run_simulation(
 
     return theta, doca, relative_energies, p
 
-run_calc = False
+run_calc = True
+use_newton = False
 n = 0.0914
 pmax = np.pi*(n)**(-1./3.)
 potential = morse
 name='Morse (ACPR)'
-use_newton = False
-
 
 if run_calc:
     start = time.time()
