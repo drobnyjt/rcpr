@@ -2,15 +2,14 @@
 name = "rcpr"
 version = "0.2.0"
 authors = ["Jarat <jdrobny@tae.com>"]
-edition = "2018"
+edition = "2024"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-nalgebra = "0.32.3"
-cached_proc_macro = "0.4.0"
-cached = "0.19.0"
-anyhow = "1.0"
+nalgebra = "0.35.0"
+cached = {version="2.0.2"}
+anyhow = "1.0.104"
 
 [lib]
 crate-type = ["rlib"]
