@@ -2,7 +2,7 @@
 
 #[cfg(test)]
 mod tests {
-    use cached::proc_macro::cached;
+    use cached::macros::cached;
     pub use crate::chebyshev::*;
 
     fn g(x: f64) -> f64 {
@@ -103,7 +103,7 @@ pub mod chebyshev {
     use nalgebra::{DMatrix, DVector, Schur};
     use nalgebra::linalg::balancing::balance_parlett_reinsch;
     use std::f64::consts::PI;
-    use cached::proc_macro::cached;
+    use cached::macros::cached;
     use anyhow::{Result, Context, anyhow};
 
     pub fn real_polynomial_roots(c_j: Vec<f64>, complex_threshold: f64) -> Result<Vec<f64>, anyhow::Error> {
