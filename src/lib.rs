@@ -383,15 +383,14 @@ pub mod chebyshev {
                     let eigenvalues = schur_matrix.complex_eigenvalues();
                     for eigenvalue in eigenvalues.iter() {
 
-                        if (eigenvalue.re.abs() < 1.) && (eigenvalue.im.abs() < complex_threshold){
+                        if (eigenvalue.re.abs() <= 1.) && (eigenvalue.im.abs() <= complex_threshold){
                             roots.push(eigenvalue.re*(i.1 - i.0)/2. + (i.1 + i.0)/2.)
                         }
                     }
                 } else {
-                    if let Ok(subroots) = find_roots(&f, vec![(i.0, i.0 + (i.1 - i.0)/2.), (i.0 + (i.1 - i.0)/2., i.1)], N0, epsilon, N_max, complex_threshold, truncation_threshold, interval_limit, far_from_zero) {
-                        for root in subroots {
-                            roots.push(root)
-                        }
+                    let subroots = find_roots(&f, vec![(i.0, i.0 + (i.1 - i.0)/2.), (i.0 + (i.1 - i.0)/2., i.1)], N0, epsilon, N_max, complex_threshold, truncation_threshold, interval_limit, far_from_zero)?;
+                    for root in subroots {
+                        roots.push(root)
                     }
                 }
             }
