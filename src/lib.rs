@@ -543,23 +543,23 @@ pub mod chebyshev {
     }
 
     pub fn chebyshev_approximate(a_j: DVector<f64>, a: f64, b: f64, x: f64) -> f64 {
-        //
         let N = a_j.len() - 1;
 
-        let xi = (2.*x - (b + a))/(b - a);
-        let mut b0 = 0.;
-        let mut b1 = 0.;
-        let mut b2 = 0.;
-        let mut b3 = 0.;
+        let xi = (2.0 * x - (b + a)) / (b - a);
+        let mut b0 = 0.0;
+        let mut b1 = 0.0;
+        let mut b2 = 0.0;
+        let mut b3 = 0.0;
 
-        for i in 1..=N {
-            b0 = 2.*xi*b1 - b2 + a_j[N - i];
+        // N+1 iterations, consuming a_N, a_{N-1}, ..., a_0
+        for i in 1..=N + 1 {
+            b0 = 2.0 * xi * b1 - b2 + a_j[N + 1 - i];
             b3 = b2;
             b2 = b1;
             b1 = b0;
         }
 
-        (b0 - b3 + a_j[0])/2.
+        (b0 - b3 + a_j[0]) / 2.0
     }
 
     fn chebyshev_adaptive(f: &dyn Fn(f64) -> f64, a: f64, b: f64, N0: usize, epsilon: f64, N_max: usize) -> (DVector<f64>, f64) {
