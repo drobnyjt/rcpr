@@ -353,7 +353,7 @@ pub mod chebyshev {
                 //Test if all chebyshev interpolants in this interval are far from zero
                 //If yes, skip this interval
                 if fxk.iter().all(|fx| fx.abs() > far_from_zero) {
-                    break
+                    continue
                 }
 
                 //Truncate chebyshev coefficients if below threshold
@@ -362,7 +362,7 @@ pub mod chebyshev {
                 //If len(a_j) is 1, then its eigenvalue is simply itself, and the interval can be skipped.
                 if a_j.len() == 1 {
                     roots.push(a_j[0]*(i.1 - i.0)/2. + (i.1 + i.0)/2.);
-                    break
+                    continue
                 }
 
                 let mut A = chebyshev_frobenius_matrix(a_j);
@@ -388,7 +388,7 @@ pub mod chebyshev {
                         }
                     }
                 } else {
-                    if let Ok(subroots) = find_roots(&f, vec![(i.0, (i.1 - i.0)/2.), ((i.1 - i.0)/2., i.1)], N0, epsilon, N_max, complex_threshold, truncation_threshold, interval_limit, far_from_zero) {
+                    if let Ok(subroots) = find_roots(&f, vec![(i.0, i.0 + (i.1 - i.0)/2.), (i.0 + (i.1 - i.0)/2., i.1)], N0, epsilon, N_max, complex_threshold, truncation_threshold, interval_limit, far_from_zero) {
                         for root in subroots {
                             roots.push(root)
                         }
