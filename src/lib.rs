@@ -242,9 +242,11 @@ pub mod chebyshev {
 
             let x3 = x2 - f(x2)*(x2 - x1)/(f(x2) - f(x1));
 
-            let err = (x3 - x2)*(x3 - x2);
+            //let err = (x3 - x2)*(x3 - x2);
+            // This error is the residual instead of the difference.
+            let err = f(x3).abs();
 
-            if err.sqrt() < epsilon {
+            if err < epsilon {
                 return Ok(x3)
             }
             x1 = x2;
