@@ -7,7 +7,6 @@ const SCHUR_DECOMPOSITION_EPSILON: f64 = 1e-15;
 use nalgebra::{DMatrix, DVector, Schur};
 use nalgebra::linalg::balancing::balance_parlett_reinsch;
 use std::f64::consts::PI;
-use cached::macros::cached;
 use anyhow::{Result, Context, anyhow};
 
 pub mod chebyshev;

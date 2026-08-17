@@ -1,6 +1,6 @@
 use super::*;
 
-pub fn newton_polish<F: Fn(f64) -> f64>(f: &F, df: &F, x0: f64, iter_max: usize, epsilon: f64) -> Result<f64, anyhow::Error> {
+pub fn newton_polish<F: Fn(f64) -> f64, D: Fn(f64) -> f64>(f: &F, df: &D, x0: f64, iter_max: usize, epsilon: f64) -> Result<f64, anyhow::Error> {
 
     if x0.is_nan() {
         return Err(anyhow!("Newton iteration guess is NaN. Check preceding calculation."))
@@ -41,7 +41,7 @@ pub fn secant_polish<F: Fn(f64) -> f64>(f: &F, x0: f64, iter_max: usize, epsilon
         let x3 = x2 - f2*(x2 - x1)/(f2 - f(x1));
 
         //let err = (x3 - x2)*(x3 - x2);
-        // This error is the residual instead of the difference.
+        // This error is the absolute residual instead of the difference.
         let err = f(x3).abs();
 
         if err < epsilon {
@@ -77,10 +77,10 @@ pub fn bisection_polish<F: Fn(f64) -> f64>(f: &F, a0: f64, b0: f64, iter_max: us
     Err(anyhow!("Bisection failed to converge."))
 }
 
-pub fn newton_iteration<F: Fn(f64) -> f64>(f: &F, df: &F, x0: f64) -> f64 {
+pub fn newton_iteration<F: Fn(f64) -> f64, D: Fn(f64) -> f64>(f: &F, df: &D, x0: f64) -> f64 {
     x0 - f(x0)/df(x0)
 }
 
-pub fn newton_correction<F: Fn(f64) -> f64>(f: &F, df: &F, x0: f64) -> f64 {
+pub fn newton_correction<F: Fn(f64) -> f64, D: Fn(f64) -> f64>(f: &F, df: &D, x0: f64) -> f64 {
     f(x0)/df(x0)
 }

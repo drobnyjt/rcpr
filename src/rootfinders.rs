@@ -26,11 +26,13 @@ pub fn find_roots<F: Fn(f64) -> f64>(f: &F, intervals: Vec<(f64, f64)>, N0: usiz
 
             //Test if all chebyshev interpolants in this interval are far from zero
             //If yes, skip this interval
-            if fxk.iter().all(|fx| fx.abs() > far_from_zero) {
+            let min = fxk.clone().into_iter().min_by(f64::total_cmp);
+            let max = fxk.into_iter().max_by(f64::total_cmp);
+            if min > Some(far_from_zero) || max < Some(-far_from_zero) {
                 continue
             }
 
-            //Truncate chebyshev coefficients if below threshold
+            //Truncate trailing chebyshev coefficients if below threshold
             let a_j = truncate_chebyshev_coefficients(c, truncation_threshold);
 
             //If len(a_j) is 1, then its eigenvalue is simply itself, and the interval can be skipped.
@@ -74,7 +76,7 @@ pub fn find_roots<F: Fn(f64) -> f64>(f: &F, intervals: Vec<(f64, f64)>, N0: usiz
     }
 }
 
-pub fn find_roots_piecewise_with_newton_polishing<F: Fn(f64) -> f64>(g: &F, f: &F, df: &F, intervals: Vec<(f64, f64)>, N0: usize, epsilon: f64, N_max: usize, complex_threshold: f64, truncation_threshold: f64, interval_limit: f64, far_from_zero: f64) -> Result<Vec<f64>, anyhow::Error> {
+pub fn find_roots_piecewise_with_newton_polishing<F: Fn(f64) -> f64, G: Fn(f64) -> f64, D: Fn(f64) -> f64>(g: &G, f: &F, df: &D, intervals: Vec<(f64, f64)>, N0: usize, epsilon: f64, N_max: usize, complex_threshold: f64, truncation_threshold: f64, interval_limit: f64, far_from_zero: f64) -> Result<Vec<f64>, anyhow::Error> {
 
     let a = intervals[0].0;
     let b = intervals[intervals.len() - 1].1;
@@ -98,7 +100,7 @@ pub fn find_roots_piecewise_with_newton_polishing<F: Fn(f64) -> f64>(g: &F, f: &
     }
 }
 
-pub fn find_roots_with_secant_polishing<F: Fn(f64) -> f64>(g: &F, f: &F, a: f64, b: f64, N0: usize, epsilon: f64, N_max: usize, complex_threshold: f64, truncation_threshold: f64, interval_limit: f64, far_from_zero: f64) -> Result<Vec<f64>, anyhow::Error> {
+pub fn find_roots_with_secant_polishing<F: Fn(f64) -> f64, G: Fn(f64) -> f64>(g: &G, f: &F, a: f64, b: f64, N0: usize, epsilon: f64, N_max: usize, complex_threshold: f64, truncation_threshold: f64, interval_limit: f64, far_from_zero: f64) -> Result<Vec<f64>, anyhow::Error> {
 
     if let Ok(roots) = find_roots(g, vec![(a, b)], N0, epsilon, N_max, complex_threshold, truncation_threshold, interval_limit, far_from_zero) {
         let mut polished_roots: Vec<f64> = Vec::new();
@@ -119,7 +121,7 @@ pub fn find_roots_with_secant_polishing<F: Fn(f64) -> f64>(g: &F, f: &F, a: f64,
     }
 }
 
-pub fn find_roots_with_newton_polishing<F: Fn(f64) -> f64>(g: &F, f: &F, df: &F, a: f64, b: f64, N0: usize, epsilon: f64, N_max: usize, complex_threshold: f64, truncation_threshold: f64, interval_limit: f64, far_from_zero: f64) -> Result<Vec<f64>, anyhow::Error> {
+pub fn find_roots_with_newton_polishing<F: Fn(f64) -> f64, G: Fn(f64) -> f64, D: Fn(f64) -> f64>(g: &G, f: &F, df: &D, a: f64, b: f64, N0: usize, epsilon: f64, N_max: usize, complex_threshold: f64, truncation_threshold: f64, interval_limit: f64, far_from_zero: f64) -> Result<Vec<f64>, anyhow::Error> {
 
     if let Ok(roots) = find_roots(g, vec![(a, b)], N0, epsilon, N_max, complex_threshold, truncation_threshold, interval_limit, far_from_zero) {
         let mut polished_roots: Vec<f64> = Vec::new();
@@ -141,7 +143,7 @@ pub fn find_roots_with_newton_polishing<F: Fn(f64) -> f64>(g: &F, f: &F, df: &F,
     }
 }
 
-pub fn find_roots_piecewise_with_secant_polishing<F: Fn(f64) -> f64>(g: &F, f: &F, intervals: Vec<(f64, f64)>, N0: usize, epsilon: f64, N_max: usize, complex_threshold: f64, truncation_threshold: f64, interval_limit: f64, far_from_zero: f64) -> Result<Vec<f64>, anyhow::Error> {
+pub fn find_roots_piecewise_with_secant_polishing<F: Fn(f64) -> f64, G: Fn(f64) -> f64>(g: &G, f: &F, intervals: Vec<(f64, f64)>, N0: usize, epsilon: f64, N_max: usize, complex_threshold: f64, truncation_threshold: f64, interval_limit: f64, far_from_zero: f64) -> Result<Vec<f64>, anyhow::Error> {
 
     let a = intervals[0].0;
     let b = intervals[intervals.len() - 1].1;

@@ -159,7 +159,6 @@ fn delta(j: i32, k: i32) -> f64 {
     }
 }
 
-#[cached]
 fn interpolation_matrix(N: usize) -> DMatrix<f64> {
 
     let mut I_jk: DMatrix<f64> = DMatrix::zeros(N + 1, N + 1);
