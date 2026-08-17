@@ -3,7 +3,7 @@ pub use super::*;
 use crate::chebyshev::{chebyshev_subdivide, chebyshev_frobenius_matrix, truncate_chebyshev_coefficients};
 use crate::polish::*;
 
-pub fn find_roots(f: fn(f64) -> f64, intervals: Vec<(f64, f64)>, N0: usize, epsilon: f64, N_max: usize, complex_threshold: f64, truncation_threshold: f64, interval_limit: f64, far_from_zero: f64) -> Result<Vec<f64>, anyhow::Error> {
+pub fn find_roots<F: Fn(f64) -> f64>(f: &F, intervals: Vec<(f64, f64)>, N0: usize, epsilon: f64, N_max: usize, complex_threshold: f64, truncation_threshold: f64, interval_limit: f64, far_from_zero: f64) -> Result<Vec<f64>, anyhow::Error> {
 
     assert!(N0 > 0, "N0 cannot be zero.");
     assert!(N_max >= N0, "N_max cannot be smaller than N0.");
@@ -74,7 +74,7 @@ pub fn find_roots(f: fn(f64) -> f64, intervals: Vec<(f64, f64)>, N0: usize, epsi
     }
 }
 
-pub fn find_roots_piecewise_with_newton_polishing(g: fn(f64) -> f64, f: fn(f64) -> f64, df: fn(f64) -> f64, intervals: Vec<(f64, f64)>, N0: usize, epsilon: f64, N_max: usize, complex_threshold: f64, truncation_threshold: f64, interval_limit: f64, far_from_zero: f64) -> Result<Vec<f64>, anyhow::Error> {
+pub fn find_roots_piecewise_with_newton_polishing<F: Fn(f64) -> f64>(g: &F, f: &F, df: &F, intervals: Vec<(f64, f64)>, N0: usize, epsilon: f64, N_max: usize, complex_threshold: f64, truncation_threshold: f64, interval_limit: f64, far_from_zero: f64) -> Result<Vec<f64>, anyhow::Error> {
 
     let a = intervals[0].0;
     let b = intervals[intervals.len() - 1].1;
@@ -98,7 +98,7 @@ pub fn find_roots_piecewise_with_newton_polishing(g: fn(f64) -> f64, f: fn(f64) 
     }
 }
 
-pub fn find_roots_with_secant_polishing(g: fn(f64) -> f64, f: fn(f64) -> f64, a: f64, b: f64, N0: usize, epsilon: f64, N_max: usize, complex_threshold: f64, truncation_threshold: f64, interval_limit: f64, far_from_zero: f64) -> Result<Vec<f64>, anyhow::Error> {
+pub fn find_roots_with_secant_polishing<F: Fn(f64) -> f64>(g: &F, f: &F, a: f64, b: f64, N0: usize, epsilon: f64, N_max: usize, complex_threshold: f64, truncation_threshold: f64, interval_limit: f64, far_from_zero: f64) -> Result<Vec<f64>, anyhow::Error> {
 
     if let Ok(roots) = find_roots(g, vec![(a, b)], N0, epsilon, N_max, complex_threshold, truncation_threshold, interval_limit, far_from_zero) {
         let mut polished_roots: Vec<f64> = Vec::new();
@@ -119,7 +119,7 @@ pub fn find_roots_with_secant_polishing(g: fn(f64) -> f64, f: fn(f64) -> f64, a:
     }
 }
 
-pub fn find_roots_with_newton_polishing(g: fn(f64) -> f64, f: fn(f64) -> f64, df: fn(f64) -> f64, a: f64, b: f64, N0: usize, epsilon: f64, N_max: usize, complex_threshold: f64, truncation_threshold: f64, interval_limit: f64, far_from_zero: f64) -> Result<Vec<f64>, anyhow::Error> {
+pub fn find_roots_with_newton_polishing<F: Fn(f64) -> f64>(g: &F, f: &F, df: &F, a: f64, b: f64, N0: usize, epsilon: f64, N_max: usize, complex_threshold: f64, truncation_threshold: f64, interval_limit: f64, far_from_zero: f64) -> Result<Vec<f64>, anyhow::Error> {
 
     if let Ok(roots) = find_roots(g, vec![(a, b)], N0, epsilon, N_max, complex_threshold, truncation_threshold, interval_limit, far_from_zero) {
         let mut polished_roots: Vec<f64> = Vec::new();
@@ -141,7 +141,7 @@ pub fn find_roots_with_newton_polishing(g: fn(f64) -> f64, f: fn(f64) -> f64, df
     }
 }
 
-pub fn find_roots_piecewise_with_secant_polishing(g: fn(f64) -> f64, f: fn(f64) -> f64, intervals: Vec<(f64, f64)>, N0: usize, epsilon: f64, N_max: usize, complex_threshold: f64, truncation_threshold: f64, interval_limit: f64, far_from_zero: f64) -> Result<Vec<f64>, anyhow::Error> {
+pub fn find_roots_piecewise_with_secant_polishing<F: Fn(f64) -> f64>(g: &F, f: &F, intervals: Vec<(f64, f64)>, N0: usize, epsilon: f64, N_max: usize, complex_threshold: f64, truncation_threshold: f64, interval_limit: f64, far_from_zero: f64) -> Result<Vec<f64>, anyhow::Error> {
 
     let a = intervals[0].0;
     let b = intervals[intervals.len() - 1].1;

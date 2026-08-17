@@ -13,6 +13,7 @@ use anyhow::{Result, Context, anyhow};
 pub mod chebyshev;
 pub mod rootfinders;
 pub mod polish;
+pub mod python;
 
 pub fn monomial_frobenius_matrix(c_j: DVector<f64>) -> DMatrix<f64> {
     let N: usize = c_j.len() - 1;

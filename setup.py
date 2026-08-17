@@ -6,7 +6,7 @@ setup(
     version="0.3.0",
     rust_extensions=[
         RustExtension(
-            "libRustBCA",
+            "pyacpr",
             binding=Binding.PyO3,
             features=["python"]
         )

@@ -1,6 +1,6 @@
 use super::*;
 
-fn chebyshev_adaptive(f: fn(f64) -> f64, a: f64, b: f64, N0: usize, epsilon: f64, N_max: usize) -> (DVector<f64>, f64) {
+pub fn chebyshev_adaptive<F: Fn(f64) -> f64>(f: &F, a: f64, b: f64, N0: usize, epsilon: f64, N_max: usize) -> (DVector<f64>, f64) {
     //Adaptive Chebyshev approximation of the function f on the interval [a, b], which starts from degree N0 and doubles
     //the degree each iteration until the error is less than epsilon, starting with order N0 returning the Chebyshev coefficients a if
     //convergence is reached before the degree exceeds N_max.
@@ -46,7 +46,7 @@ pub fn chebyshev_approximate(a_j: DVector<f64>, a: f64, b: f64, x: f64) -> f64 {
     (b0 - b3 + a_j[0]) / 2.0
 }
 
-pub fn chebyshev_subdivide(f: fn(f64) -> f64, intervals: Vec<(f64, f64)>, N0: usize, epsilon: f64, N_max: usize, interval_limit: f64) -> Result<(Vec<(f64, f64)>, Vec<DVector<f64>>), anyhow::Error> {
+pub fn chebyshev_subdivide<F: Fn(f64) -> f64>(f: &F, intervals: Vec<(f64, f64)>, N0: usize, epsilon: f64, N_max: usize, interval_limit: f64) -> Result<(Vec<(f64, f64)>, Vec<DVector<f64>>), anyhow::Error> {
     //Adaptive Chebyshev Series interpolation with automatic subdivision.
     //
     //This function automatically divides the domain by halves into subintervals
@@ -97,7 +97,7 @@ pub fn chebyshev_subdivide(f: fn(f64) -> f64, intervals: Vec<(f64, f64)>, N0: us
     Ok((intervals_out, coefficients))
 }
 
-fn chebyshev_coefficients(f: fn(f64) -> f64, a: f64, b: f64, N: usize) -> DVector<f64> {
+fn chebyshev_coefficients<F: Fn(f64) -> f64>(f: &F, a: f64, b: f64, N: usize) -> DVector<f64> {
     //Given a function f and an interval [a, b], returns a vector of the Chebyshev interpolation
     //coefficients on that interval of order N.
     let xk = lobatto_grid(a, b, N);
