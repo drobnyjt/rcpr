@@ -29,7 +29,7 @@ fn test_rootfinding_with_newton() {
     let interval_limit = 1E-12;
     let far_from_zero = 1E9;
 
-    let roots = find_roots_piecewise_with_newton_polishing(&g, &f, &df, vec![(a, -2E-4), (-2E-4, 0.0), (0.0, 2E-5), (2E-5, b)], N0, epsilon, N_max, complex_threshold, truncation_threshold, interval_limit, far_from_zero).unwrap();
+    let roots = find_roots_piecewise_with_newton_polishing(g, f, df, vec![(a, -2E-4), (-2E-4, 0.0), (0.0, 2E-5), (2E-5, b)], N0, epsilon, N_max, complex_threshold, truncation_threshold, interval_limit, far_from_zero).unwrap();
     let num_roots = roots.len();
 
     println!("Identified {} roots.", num_roots);
@@ -53,7 +53,7 @@ fn test_rootfinding_with_secant() {
     let interval_limit = 1E-12;
     let far_from_zero = 1E9;
 
-    let roots = find_roots_piecewise_with_secant_polishing(&g, &f, vec![(a, -2E-4), (-2E-4, 0.0), (0.0, 2E-5), (2E-5, b)], N0, epsilon, N_max, complex_threshold, truncation_threshold, interval_limit, far_from_zero).unwrap();
+    let roots = find_roots_piecewise_with_secant_polishing(g, f, vec![(a, -2E-4), (-2E-4, 0.0), (0.0, 2E-5), (2E-5, b)], N0, epsilon, N_max, complex_threshold, truncation_threshold, interval_limit, far_from_zero).unwrap();
     let num_roots = roots.len();
 
     println!("Identified {} roots.", num_roots);

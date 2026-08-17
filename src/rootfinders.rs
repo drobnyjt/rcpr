@@ -3,7 +3,7 @@ pub use super::*;
 use crate::chebyshev::{chebyshev_subdivide, chebyshev_frobenius_matrix, truncate_chebyshev_coefficients};
 use crate::polish::*;
 
-pub fn find_roots(f: &dyn Fn(f64) -> f64, intervals: Vec<(f64, f64)>, N0: usize, epsilon: f64, N_max: usize, complex_threshold: f64, truncation_threshold: f64, interval_limit: f64, far_from_zero: f64) -> Result<Vec<f64>, anyhow::Error> {
+pub fn find_roots(f: fn(f64) -> f64, intervals: Vec<(f64, f64)>, N0: usize, epsilon: f64, N_max: usize, complex_threshold: f64, truncation_threshold: f64, interval_limit: f64, far_from_zero: f64) -> Result<Vec<f64>, anyhow::Error> {
 
     assert!(N0 > 0, "N0 cannot be zero.");
     assert!(N_max >= N0, "N_max cannot be smaller than N0.");
@@ -16,7 +16,7 @@ pub fn find_roots(f: &dyn Fn(f64) -> f64, intervals: Vec<(f64, f64)>, N0: usize,
     let a = intervals[0].0;
     let b = intervals[intervals.len() - 1].1;
 
-    if let Ok((intervals, coefficients)) = chebyshev_subdivide(&f, intervals, N0, epsilon, N_max, interval_limit) {
+    if let Ok((intervals, coefficients)) = chebyshev_subdivide(f, intervals, N0, epsilon, N_max, interval_limit) {
         let mut roots: Vec<f64> = Vec::new();
 
         for (i, c) in intervals.iter().zip(coefficients).filter(|(_, c)| !c.is_empty() ) {
@@ -62,7 +62,7 @@ pub fn find_roots(f: &dyn Fn(f64) -> f64, intervals: Vec<(f64, f64)>, N0: usize,
                     }
                 }
             } else {
-                let subroots = find_roots(&f, vec![(i.0, i.0 + (i.1 - i.0)/2.), (i.0 + (i.1 - i.0)/2., i.1)], N0, epsilon, N_max, complex_threshold, truncation_threshold, interval_limit, far_from_zero)?;
+                let subroots = find_roots(f, vec![(i.0, i.0 + (i.1 - i.0)/2.), (i.0 + (i.1 - i.0)/2., i.1)], N0, epsilon, N_max, complex_threshold, truncation_threshold, interval_limit, far_from_zero)?;
                 for root in subroots {
                     roots.push(root)
                 }
@@ -74,7 +74,7 @@ pub fn find_roots(f: &dyn Fn(f64) -> f64, intervals: Vec<(f64, f64)>, N0: usize,
     }
 }
 
-pub fn find_roots_piecewise_with_newton_polishing(g: &dyn Fn(f64) -> f64, f: &dyn Fn(f64) -> f64, df: &dyn Fn(f64) -> f64, intervals: Vec<(f64, f64)>, N0: usize, epsilon: f64, N_max: usize, complex_threshold: f64, truncation_threshold: f64, interval_limit: f64, far_from_zero: f64) -> Result<Vec<f64>, anyhow::Error> {
+pub fn find_roots_piecewise_with_newton_polishing(g: fn(f64) -> f64, f: fn(f64) -> f64, df: fn(f64) -> f64, intervals: Vec<(f64, f64)>, N0: usize, epsilon: f64, N_max: usize, complex_threshold: f64, truncation_threshold: f64, interval_limit: f64, far_from_zero: f64) -> Result<Vec<f64>, anyhow::Error> {
 
     let a = intervals[0].0;
     let b = intervals[intervals.len() - 1].1;
@@ -84,7 +84,7 @@ pub fn find_roots_piecewise_with_newton_polishing(g: &dyn Fn(f64) -> f64, f: &dy
 
         for root in roots.iter() {
 
-            if let Ok(root_refined) = newton_polish(&f, &df, *root, NEWTON_MAX_ITERATIONS, epsilon){
+            if let Ok(root_refined) = newton_polish(f, df, *root, NEWTON_MAX_ITERATIONS, epsilon){
                 let correction = root_refined - *root;
 
                 if ((correction/root_refined).abs() < 1.) & (root_refined >= a) & (root_refined <= b) {
@@ -98,14 +98,14 @@ pub fn find_roots_piecewise_with_newton_polishing(g: &dyn Fn(f64) -> f64, f: &dy
     }
 }
 
-pub fn find_roots_with_secant_polishing(g: &dyn Fn(f64) -> f64, f: &dyn Fn(f64) -> f64, a: f64, b: f64, N0: usize, epsilon: f64, N_max: usize, complex_threshold: f64, truncation_threshold: f64, interval_limit: f64, far_from_zero: f64) -> Result<Vec<f64>, anyhow::Error> {
+pub fn find_roots_with_secant_polishing(g: fn(f64) -> f64, f: fn(f64) -> f64, a: f64, b: f64, N0: usize, epsilon: f64, N_max: usize, complex_threshold: f64, truncation_threshold: f64, interval_limit: f64, far_from_zero: f64) -> Result<Vec<f64>, anyhow::Error> {
 
     if let Ok(roots) = find_roots(g, vec![(a, b)], N0, epsilon, N_max, complex_threshold, truncation_threshold, interval_limit, far_from_zero) {
         let mut polished_roots: Vec<f64> = Vec::new();
 
         for root in roots.iter() {
 
-            if let Ok(root_refined) = secant_polish(&f, *root, SECANT_MAX_ITERATIONS, epsilon){
+            if let Ok(root_refined) = secant_polish(f, *root, SECANT_MAX_ITERATIONS, epsilon){
                 let correction = root_refined - *root;
 
                 if ((correction/root_refined).abs() < 1.) & (root_refined >= a) & (root_refined <= b) {
@@ -119,14 +119,14 @@ pub fn find_roots_with_secant_polishing(g: &dyn Fn(f64) -> f64, f: &dyn Fn(f64) 
     }
 }
 
-pub fn find_roots_with_newton_polishing(g: &dyn Fn(f64) -> f64, f: &dyn Fn(f64) -> f64, df: &dyn Fn(f64) -> f64, a: f64, b: f64, N0: usize, epsilon: f64, N_max: usize, complex_threshold: f64, truncation_threshold: f64, interval_limit: f64, far_from_zero: f64) -> Result<Vec<f64>, anyhow::Error> {
+pub fn find_roots_with_newton_polishing(g: fn(f64) -> f64, f: fn(f64) -> f64, df: fn(f64) -> f64, a: f64, b: f64, N0: usize, epsilon: f64, N_max: usize, complex_threshold: f64, truncation_threshold: f64, interval_limit: f64, far_from_zero: f64) -> Result<Vec<f64>, anyhow::Error> {
 
     if let Ok(roots) = find_roots(g, vec![(a, b)], N0, epsilon, N_max, complex_threshold, truncation_threshold, interval_limit, far_from_zero) {
         let mut polished_roots: Vec<f64> = Vec::new();
 
         for root in roots.iter() {
 
-            if let Ok(root_refined) = newton_polish(&f, &df, *root, NEWTON_MAX_ITERATIONS, epsilon){
+            if let Ok(root_refined) = newton_polish(f, df, *root, NEWTON_MAX_ITERATIONS, epsilon){
 
                 let correction = root_refined - *root;
 
@@ -141,7 +141,7 @@ pub fn find_roots_with_newton_polishing(g: &dyn Fn(f64) -> f64, f: &dyn Fn(f64) 
     }
 }
 
-pub fn find_roots_piecewise_with_secant_polishing(g: &dyn Fn(f64) -> f64, f: &dyn Fn(f64) -> f64, intervals: Vec<(f64, f64)>, N0: usize, epsilon: f64, N_max: usize, complex_threshold: f64, truncation_threshold: f64, interval_limit: f64, far_from_zero: f64) -> Result<Vec<f64>, anyhow::Error> {
+pub fn find_roots_piecewise_with_secant_polishing(g: fn(f64) -> f64, f: fn(f64) -> f64, intervals: Vec<(f64, f64)>, N0: usize, epsilon: f64, N_max: usize, complex_threshold: f64, truncation_threshold: f64, interval_limit: f64, far_from_zero: f64) -> Result<Vec<f64>, anyhow::Error> {
 
     let a = intervals[0].0;
     let b = intervals[intervals.len() - 1].1;
@@ -151,7 +151,7 @@ pub fn find_roots_piecewise_with_secant_polishing(g: &dyn Fn(f64) -> f64, f: &dy
 
         for root in roots.iter() {
 
-            if let Ok(root_refined) = secant_polish(&f, *root, SECANT_MAX_ITERATIONS, epsilon){
+            if let Ok(root_refined) = secant_polish(f, *root, SECANT_MAX_ITERATIONS, epsilon){
                 let correction = root_refined - *root;
 
                 if ((correction/root_refined).abs() < 1.) & (root_refined >= a) & (root_refined <= b) {
