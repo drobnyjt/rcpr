@@ -1,4 +1,3 @@
-pub use crate::chebyshev::*;
 pub use crate::rootfinders::*;
 
 fn g(x: f64) -> f64 {

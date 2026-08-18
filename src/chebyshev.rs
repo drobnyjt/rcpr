@@ -63,7 +63,7 @@ pub fn chebyshev_subdivide<F: Fn(f64) -> f64>(f: &F, intervals: Vec<(f64, f64)>,
     for interval in intervals {
 
         if (interval.1 - interval.0) < interval_limit {
-            return Err(anyhow!("Reached minimum interval limit. Failed to converge. [a, b] = [{}, {}], f(a) = {}, f(b) = {}",
+            return Err(anyhow!("Reached minimum interval limit. [a, b] = [{}, {}], f(a) = {}, f(b) = {}",
                 interval.0, interval.1, f(interval.0), f(interval.1)));
         }
 

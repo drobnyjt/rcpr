@@ -1,6 +1,6 @@
 use super::*;
 
-pub fn newton_polish<F: Fn(f64) -> f64, D: Fn(f64) -> f64>(f: &F, df: &D, x0: f64, iter_max: usize, epsilon: f64) -> Result<f64, anyhow::Error> {
+pub fn newton_polish<F: Fn(f64) -> f64, D: Fn(f64) -> f64>(f: &F, df: &D, x0: f64, iter_max: usize, delta: f64) -> Result<f64, anyhow::Error> {
 
     if x0.is_nan() {
         return Err(anyhow!("Newton iteration guess is NaN. Check preceding calculation."))
@@ -14,67 +14,57 @@ pub fn newton_polish<F: Fn(f64) -> f64, D: Fn(f64) -> f64>(f: &F, df: &D, x0: f6
         if xn.is_nan() || (df_x == 0.0) {
             return Err(anyhow!("NaN in Newton iteration."))
         }
-        let err = (xn - x).abs();
+        let err = hyberr(xn, x);
         x = xn;
-        if err < epsilon {
+        if err < delta {
             return Ok(x);
         }
     }
     Err(anyhow!("Newton failed to converge after {} iterations.", iter_max))
 }
 
-pub fn secant_polish<F: Fn(f64) -> f64>(f: &F, x0: f64, iter_max: usize, epsilon: f64) -> Result<f64, anyhow::Error> {
+/// Hybrid Error: https://arxiv.org/html/2403.07492v2
+fn hyberr(x: f64, y: f64) -> f64 {
+    (x - y).abs()/(1. + y.abs())
+}
+
+pub fn secant_polish<F: Fn(f64) -> f64>(f: &F, x0: f64, iter_max: usize, delta: f64) -> Result<f64, anyhow::Error> {
 
     if x0.is_nan() {
         return Err(anyhow!("Secant iteration guess is NaN. Check preceding calculation."))
     }
 
     let mut x1 = x0;
-    let mut x2 = if x0.abs() > 0.0 {
-        x0*1.25
-    } else {
-        1e-12
-    };
+    let dx = x0.abs().max(1.0)*f64::EPSILON.sqrt();
+    let mut x2 = x1 + dx;
+
+    if hyberr(x2, x1) < delta {
+        return Ok(x1)
+    }
+    
     for _ in 1..=iter_max {
 
         let f2 = f(x2);
-        let x3 = x2 - f2*(x2 - x1)/(f2 - f(x1));
+        let f1 = f(x1);
+        let df = f2 - f1;
+
+        if df.abs() < f64::EPSILON {
+            return Err(anyhow!("Step size {} too small for secant.", x2 - x1))
+        }
+
+        let x3 = x2 - f2*(x2 - x1)/df;
 
         //let err = (x3 - x2)*(x3 - x2);
         // This error is the absolute residual instead of the difference.
-        let err = f(x3).abs();
+        let err = hyberr(x3, x2);
 
-        if err < epsilon {
+        if err < delta {
             return Ok(x3)
         }
         x1 = x2;
         x2 = x3;
     }
     Err(anyhow!("Secant failed to converge after {} iterations.", iter_max))
-}
-
-pub fn bisection_polish<F: Fn(f64) -> f64>(f: &F, a0: f64, b0: f64, iter_max: usize, epsilon: f64) -> Result<f64, anyhow::Error> {
-    let mut a = a0;
-    let mut b = b0;
-
-    ensure!(f(a)*f(b) < 0., "There is an even number of roots of f(x) on the interval [{}, {}]. Cannot use bisection.", a, b);
-    ensure!(a < b, "[{}, {}] is not a valid interval.", a, b);
-
-    for _ in 0..iter_max {
-        let c = (a + b)/2.;
-        let fc = f(c);
-        if fc.abs() < epsilon {
-            return Ok(c)
-        }
-        if f(a)*fc < 0. {
-            b = c;
-        } else if fc*f(b) < 0. {
-            a = c;
-        } else {
-            return Err(anyhow!("Bisection failed to find root in interval [{}, {}]", a, b))
-        }
-    }
-    Err(anyhow!("Bisection failed to converge."))
 }
 
 pub fn newton_iteration<F: Fn(f64) -> f64, D: Fn(f64) -> f64>(f: &F, df: &D, x0: f64) -> f64 {
