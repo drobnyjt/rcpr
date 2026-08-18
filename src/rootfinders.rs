@@ -2,7 +2,6 @@ pub use super::*;
 
 use crate::chebyshev::{chebyshev_subdivide, chebyshev_frobenius_matrix, truncate_chebyshev_coefficients};
 use crate::polish::*;
-use anyhow::ensure;
 
 use serde::*;
 
