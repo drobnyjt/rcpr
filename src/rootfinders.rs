@@ -3,7 +3,65 @@ pub use super::*;
 use crate::chebyshev::{chebyshev_subdivide, chebyshev_frobenius_matrix, truncate_chebyshev_coefficients};
 use crate::polish::*;
 
-pub fn find_roots<F: Fn(f64) -> f64>(f: &F, intervals: Vec<(f64, f64)>, N0: usize, epsilon: f64, N_max: usize, complex_threshold: f64, truncation_threshold: f64, interval_limit: f64, far_from_zero: f64) -> Result<Vec<f64>, anyhow::Error> {
+use serde::*;
+
+const DEFAULT_EPSILON: f64 = 1e-9;
+
+const fn default_epsilon() -> f64 {
+    DEFAULT_EPSILON
+}
+
+const fn default_float_zero() -> f64 {
+    0.0
+}
+
+const fn default_usize_2() -> usize {
+    2
+}
+
+const fn default_usize_128() -> usize {
+    128
+}
+
+const fn default_float_max() -> f64 {
+    f64::MAX
+}
+
+#[derive(Clone, Copy, Deserialize)]
+pub struct Config {
+    #[serde(default = "default_epsilon")]
+    epsilon: f64,
+    #[serde(default = "default_usize_2")]
+    N0: usize,
+    #[serde(default = "default_usize_128")]
+    N_max: usize,
+    #[serde(default = "default_float_zero")]
+    complex_threshold: f64,
+    #[serde(default = "default_float_zero")]
+    truncation_threshold: f64,
+    #[serde(default = "default_float_max")]
+    far_from_zero: f64, 
+    #[serde(default = "default_float_zero")]
+    interval_limit: f64
+}
+
+impl Default for Config {
+    fn default() -> Config {
+        Config {
+            epsilon: default_epsilon(),
+            N0: default_usize_2(),
+            N_max: default_usize_128(),
+            complex_threshold: default_float_zero(),
+            truncation_threshold: default_float_zero(),
+            far_from_zero: default_float_max(),
+            interval_limit: default_float_zero(),
+        }
+    }
+}
+
+pub fn find_roots<F: Fn(f64) -> f64>(f: &F, intervals: Vec<(f64, f64)>, config: Config) -> Result<Vec<f64>, anyhow::Error> {
+
+    let Config { epsilon, N0, N_max, complex_threshold, truncation_threshold, far_from_zero, interval_limit } = config;
 
     assert!(N0 > 0, "N0 cannot be zero.");
     assert!(N_max >= N0, "N_max cannot be smaller than N0.");
@@ -64,7 +122,7 @@ pub fn find_roots<F: Fn(f64) -> f64>(f: &F, intervals: Vec<(f64, f64)>, N0: usiz
                     }
                 }
             } else {
-                let subroots = find_roots(f, vec![(i.0, i.0 + (i.1 - i.0)/2.), (i.0 + (i.1 - i.0)/2., i.1)], N0, epsilon, N_max, complex_threshold, truncation_threshold, interval_limit, far_from_zero)?;
+                let subroots = find_roots(f, vec![(i.0, i.0 + (i.1 - i.0)/2.), (i.0 + (i.1 - i.0)/2., i.1)], config)?;
                 for root in subroots {
                     roots.push(root)
                 }
@@ -76,12 +134,14 @@ pub fn find_roots<F: Fn(f64) -> f64>(f: &F, intervals: Vec<(f64, f64)>, N0: usiz
     }
 }
 
-pub fn find_roots_piecewise_with_newton_polishing<F: Fn(f64) -> f64, G: Fn(f64) -> f64, D: Fn(f64) -> f64>(g: &G, f: &F, df: &D, intervals: Vec<(f64, f64)>, N0: usize, epsilon: f64, N_max: usize, complex_threshold: f64, truncation_threshold: f64, interval_limit: f64, far_from_zero: f64) -> Result<Vec<f64>, anyhow::Error> {
+pub fn find_roots_piecewise_with_newton_polishing<F: Fn(f64) -> f64, G: Fn(f64) -> f64, D: Fn(f64) -> f64>(g: &G, f: &F, df: &D, intervals: Vec<(f64, f64)>, config: Config) -> Result<Vec<f64>, anyhow::Error> {
+
+    let Config { epsilon, ..} = config;
 
     let a = intervals[0].0;
     let b = intervals[intervals.len() - 1].1;
 
-    if let Ok(roots) = find_roots(g, intervals, N0, epsilon, N_max, complex_threshold, truncation_threshold, interval_limit, far_from_zero) {
+    if let Ok(roots) = find_roots(g, intervals, config) {
         let mut polished_roots: Vec<f64> = Vec::new();
 
         for root in roots.iter() {
@@ -100,9 +160,11 @@ pub fn find_roots_piecewise_with_newton_polishing<F: Fn(f64) -> f64, G: Fn(f64) 
     }
 }
 
-pub fn find_roots_with_secant_polishing<F: Fn(f64) -> f64, G: Fn(f64) -> f64>(g: &G, f: &F, a: f64, b: f64, N0: usize, epsilon: f64, N_max: usize, complex_threshold: f64, truncation_threshold: f64, interval_limit: f64, far_from_zero: f64) -> Result<Vec<f64>, anyhow::Error> {
+pub fn find_roots_with_secant_polishing<F: Fn(f64) -> f64, G: Fn(f64) -> f64>(g: &G, f: &F, a: f64, b: f64, config: Config) -> Result<Vec<f64>, anyhow::Error> {
 
-    if let Ok(roots) = find_roots(g, vec![(a, b)], N0, epsilon, N_max, complex_threshold, truncation_threshold, interval_limit, far_from_zero) {
+    let Config { epsilon, ..} = config;
+
+    if let Ok(roots) = find_roots(g, vec![(a, b)], config) {
         let mut polished_roots: Vec<f64> = Vec::new();
 
         for root in roots.iter() {
@@ -121,9 +183,11 @@ pub fn find_roots_with_secant_polishing<F: Fn(f64) -> f64, G: Fn(f64) -> f64>(g:
     }
 }
 
-pub fn find_roots_with_newton_polishing<F: Fn(f64) -> f64, G: Fn(f64) -> f64, D: Fn(f64) -> f64>(g: &G, f: &F, df: &D, a: f64, b: f64, N0: usize, epsilon: f64, N_max: usize, complex_threshold: f64, truncation_threshold: f64, interval_limit: f64, far_from_zero: f64) -> Result<Vec<f64>, anyhow::Error> {
+pub fn find_roots_with_newton_polishing<F: Fn(f64) -> f64, G: Fn(f64) -> f64, D: Fn(f64) -> f64>(g: &G, f: &F, df: &D, a: f64, b: f64, config: Config) -> Result<Vec<f64>, anyhow::Error> {
 
-    if let Ok(roots) = find_roots(g, vec![(a, b)], N0, epsilon, N_max, complex_threshold, truncation_threshold, interval_limit, far_from_zero) {
+    let Config { epsilon, ..} = config;
+
+    if let Ok(roots) = find_roots(g, vec![(a, b)], config) {
         let mut polished_roots: Vec<f64> = Vec::new();
 
         for root in roots.iter() {
@@ -143,12 +207,14 @@ pub fn find_roots_with_newton_polishing<F: Fn(f64) -> f64, G: Fn(f64) -> f64, D:
     }
 }
 
-pub fn find_roots_piecewise_with_secant_polishing<F: Fn(f64) -> f64, G: Fn(f64) -> f64>(g: &G, f: &F, intervals: Vec<(f64, f64)>, N0: usize, epsilon: f64, N_max: usize, complex_threshold: f64, truncation_threshold: f64, interval_limit: f64, far_from_zero: f64) -> Result<Vec<f64>, anyhow::Error> {
+pub fn find_roots_piecewise_with_secant_polishing<F: Fn(f64) -> f64, G: Fn(f64) -> f64>(g: &G, f: &F, intervals: Vec<(f64, f64)>, config: Config) -> Result<Vec<f64>, anyhow::Error> {
+
+    let Config { epsilon, ..} = config;
 
     let a = intervals[0].0;
     let b = intervals[intervals.len() - 1].1;
 
-    if let Ok(roots) = find_roots(g, intervals, N0, epsilon, N_max, complex_threshold, truncation_threshold, interval_limit, far_from_zero) {
+    if let Ok(roots) = find_roots(g, intervals, config) {
         let mut polished_roots: Vec<f64> = Vec::new();
 
         for root in roots.iter() {
