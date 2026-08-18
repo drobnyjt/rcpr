@@ -1,13 +1,11 @@
 #![allow(non_snake_case)]
 const NEWTON_MAX_ITERATIONS: usize = 1000;
 const SECANT_MAX_ITERATIONS: usize = 1000;
-const SCHUR_DECOMPOSITION_MAX_ITERATIONS: usize = 1000;
-const SCHUR_DECOMPOSITION_EPSILON: f64 = 1e-15;
 
-use nalgebra::{DMatrix, DVector, Schur};
+use nalgebra::{DMatrix, DVector};
 use nalgebra::linalg::balancing::balance_parlett_reinsch;
 use std::f64::consts::PI;
-use anyhow::{Result, Context, anyhow, ensure};
+use anyhow::{Result, anyhow, ensure};
 
 pub mod chebyshev;
 pub mod rootfinders;

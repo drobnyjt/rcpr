@@ -32,10 +32,6 @@ const fn default_float_max() -> f64 {
     f64::MAX
 }
 
-const fn default_float_1_100() -> f64 {
-    1./100.
-}
-
 const fn default_float_1_10000() -> f64 {
     1./10000.
 }

@@ -1,4 +1,5 @@
 use super::*;
+use cached::*;
 
 pub fn chebyshev_adaptive<F: Fn(f64) -> f64>(f: &F, a: f64, b: f64, N0: usize, epsilon: f64, N_max: usize) -> (DVector<f64>, f64) {
     //Adaptive Chebyshev approximation of the function f on the interval [a, b], which starts from degree N0 and doubles
@@ -159,6 +160,7 @@ fn delta(j: i32, k: i32) -> f64 {
     }
 }
 
+#[concurrent_cached]
 fn interpolation_matrix(N: usize) -> DMatrix<f64> {
 
     let mut I_jk: DMatrix<f64> = DMatrix::zeros(N + 1, N + 1);
