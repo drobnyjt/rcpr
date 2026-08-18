@@ -5,7 +5,7 @@ use crate::polish::*;
 
 use serde::*;
 
-const DEFAULT_EPSILON: f64 = 1e-9;
+const DEFAULT_EPSILON: f64 = 1e-10;
 
 const fn default_epsilon() -> f64 {
     DEFAULT_EPSILON
@@ -20,11 +20,19 @@ const fn default_usize_2() -> usize {
 }
 
 const fn default_usize_128() -> usize {
-    128
+    512
 }
 
 const fn default_float_max() -> f64 {
     f64::MAX
+}
+
+const fn default_float_1_100() -> f64 {
+    1./100.
+}
+
+const fn default_float_1_10000() -> f64 {
+    1./10000.
 }
 
 #[derive(Clone, Copy, Deserialize)]
@@ -35,13 +43,13 @@ pub struct Config {
     N0: usize,
     #[serde(default = "default_usize_128")]
     N_max: usize,
-    #[serde(default = "default_float_zero")]
+    #[serde(default = "default_float_1_10000")]
     complex_threshold: f64,
     #[serde(default = "default_float_zero")]
     truncation_threshold: f64,
     #[serde(default = "default_float_max")]
     far_from_zero: f64, 
-    #[serde(default = "default_float_zero")]
+    #[serde(default = "default_float_1_100")]
     interval_limit: f64
 }
 

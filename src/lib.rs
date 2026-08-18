@@ -9,7 +9,6 @@ use nalgebra::linalg::balancing::balance_parlett_reinsch;
 use std::f64::consts::PI;
 use anyhow::{Result, Context, anyhow, ensure};
 
-
 pub mod chebyshev;
 pub mod rootfinders;
 pub mod polish;
