@@ -71,6 +71,30 @@ impl Default for Config {
     }
 }
 
+impl Config {
+    pub fn new(
+        epsilon: f64,
+        delta: f64,
+        N0: usize,
+        N_max: usize,
+        complex_threshold: f64,
+        truncation_threshold: f64,
+        far_from_zero: f64,
+        interval_limit: f64
+    ) -> Config {
+        Config {
+            epsilon,
+            delta,
+            N0,
+            N_max,
+            complex_threshold,
+            truncation_threshold,
+            far_from_zero,
+            interval_limit
+        }
+    }
+}
+
 pub fn find_roots<F: Fn(f64) -> f64>(f: &F, intervals: Vec<(f64, f64)>, config: Config) -> Result<Vec<f64>, anyhow::Error> {
 
     let Config { epsilon, delta, N0, N_max, complex_threshold, truncation_threshold, far_from_zero, interval_limit } = config;
