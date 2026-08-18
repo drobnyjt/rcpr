@@ -122,26 +122,11 @@ pub fn find_roots<F: Fn(f64) -> f64>(f: &F, intervals: Vec<(f64, f64)>, config: 
         //https://doi.org/10.1007/BF02165404
         balance_parlett_reinsch(&mut A);
 
-        //nalgebra eigenvalue solver can fail for certain matrices in the Schur decomposition step
-        //See issue #611 (https://github.com/dimforge/nalgebra/issues/611)
-        //So Schur decomposition is attempted, if it fails, the interval is split in two and rootfinding is attempted on the split interval
-        if let Some(schur_matrix) = Schur::try_new(
-            A,
-            SCHUR_DECOMPOSITION_EPSILON,
-            SCHUR_DECOMPOSITION_MAX_ITERATIONS
-        ) {
+        let eigenvalues = A.complex_eigenvalues();
 
-            let eigenvalues = schur_matrix.complex_eigenvalues();
-            for eigenvalue in eigenvalues.iter() {
-
-                if (eigenvalue.re.abs() <= 1.) && (eigenvalue.im.abs() <= complex_threshold){
-                    roots.push(eigenvalue.re*(i.1 - i.0)/2. + (i.1 + i.0)/2.)
-                }
-            }
-        } else {
-            let subroots = find_roots(f, vec![(i.0, i.0 + (i.1 - i.0)/2.), (i.0 + (i.1 - i.0)/2., i.1)], config)?;
-            for root in subroots {
-                roots.push(root)
+        for eigenvalue in eigenvalues.iter() {
+            if (eigenvalue.re.abs() <= 1. + f64::EPSILON) && (eigenvalue.im.abs() <= complex_threshold){
+                roots.push(eigenvalue.re*(i.1 - i.0)/2. + (i.1 + i.0)/2.)
             }
         }
     }
