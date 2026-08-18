@@ -2,6 +2,7 @@ pub use super::*;
 
 use crate::chebyshev::{chebyshev_subdivide, chebyshev_frobenius_matrix, truncate_chebyshev_coefficients};
 use crate::polish::*;
+use anyhow::ensure;
 
 use serde::*;
 
@@ -63,13 +64,12 @@ pub fn find_roots<F: Fn(f64) -> f64>(f: &F, intervals: Vec<(f64, f64)>, config: 
 
     let Config { epsilon, N0, N_max, complex_threshold, truncation_threshold, far_from_zero, interval_limit } = config;
 
-    assert!(N0 > 0, "N0 cannot be zero.");
-    assert!(N_max >= N0, "N_max cannot be smaller than N0.");
-
-    assert!(complex_threshold >= 0., "Complex threshold cannot be less than zero.");
-    assert!(truncation_threshold >= 0., "Truncation threshold cannot be less than zero.");
-    assert!(interval_limit >= 0., "Interval limit cannot be less than zero.");
-    assert!(far_from_zero >= 0., "Far-from-zero threshold cannot be less than zero.");
+    ensure!(N0 > 0, "N0 cannot be zero.");
+    ensure!(N_max >= N0, "N_max cannot be smaller than N0.");
+    ensure!(complex_threshold >= 0., "Complex threshold cannot be less than zero.");
+    ensure!(truncation_threshold >= 0., "Truncation threshold cannot be less than zero.");
+    ensure!(interval_limit >= 0., "Interval limit cannot be less than zero.");
+    ensure!(far_from_zero >= 0., "Far-from-zero threshold cannot be less than zero.");
 
     let a = intervals[0].0;
     let b = intervals[intervals.len() - 1].1;

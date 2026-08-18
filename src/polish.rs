@@ -57,8 +57,8 @@ pub fn bisection_polish<F: Fn(f64) -> f64>(f: &F, a0: f64, b0: f64, iter_max: us
     let mut a = a0;
     let mut b = b0;
 
-    assert!(f(a)*f(b) < 0., "There is an even number of roots of f(x) on the interval [{}, {}]. Cannot use bisection.", a, b);
-    assert!(a < b, "[{}, {}] is not a valid interval.", a, b);
+    ensure!(f(a)*f(b) < 0., "There is an even number of roots of f(x) on the interval [{}, {}]. Cannot use bisection.", a, b);
+    ensure!(a < b, "[{}, {}] is not a valid interval.", a, b);
 
     for _ in 0..iter_max {
         let c = (a + b)/2.;
