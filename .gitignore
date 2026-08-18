@@ -1,2 +1,10 @@
 /target
 Cargo.lock
+target/
+debug/
+Cargo.lock
+*.output
+**/*.rs.bk
+*.pdb
+src/RustBCA.egg-info
+src/RustBCA.egg-info/*
