@@ -5,7 +5,7 @@ use crate::polish::*;
 
 use serde::*;
 
-const DEFAULT_EPSILON: f64 = 1e-10;
+const DEFAULT_EPSILON: f64 = 1e-6;
 
 const fn default_epsilon() -> f64 {
     DEFAULT_EPSILON
@@ -20,7 +20,7 @@ const fn default_usize_2() -> usize {
 }
 
 const fn default_usize_128() -> usize {
-    512
+    129
 }
 
 const fn default_float_max() -> f64 {
