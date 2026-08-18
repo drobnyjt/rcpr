@@ -6,7 +6,7 @@ Rust Chebyshev Proxy Rootfinder: A robust global rootfinder using adaptive Cheby
 You can use rcpr as follows:
 
 Include the line:
-  `rcpr = { git = "https://github.com/drobnyjt/rcpr", branch= "master" }`
+  `rcpr = { git = "https://github.com/drobnyjt/rcpr", branch= "main" }`
 in your Cargo.toml.
 
 Include the line:
