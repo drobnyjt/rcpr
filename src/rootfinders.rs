@@ -8,7 +8,7 @@ use nalgebra::Schur;
 const DEFAULT_EPSILON: f64 = 1e-6;
 const DEFAULT_DELTA: f64 = 1e-6;
 const SCHUR_DECOMPOSITION_EPSILON: f64 = 1e-9;
-const SCHUR_DECOMPOSITION_MAX_ITERATIONS: usize = 100;
+const SCHUR_DECOMPOSITION_MAX_ITERATIONS: usize = 128;
 
 const fn default_epsilon() -> f64 {
     DEFAULT_EPSILON
@@ -99,7 +99,7 @@ impl Config {
 
 pub fn find_roots<F: Fn(f64) -> f64>(f: &F, intervals: Vec<(f64, f64)>, config: Config) -> Result<Vec<f64>, anyhow::Error> {
 
-    let Config { epsilon, delta, N0, N_max, complex_threshold, truncation_threshold, far_from_zero, interval_limit } = config;
+    let Config { epsilon, N0, N_max, complex_threshold, truncation_threshold, far_from_zero, interval_limit, .. } = config;
 
     ensure!(N0 > 0, "N0 cannot be zero.");
     ensure!(N_max >= N0, "N_max cannot be smaller than N0.");
@@ -171,7 +171,7 @@ pub fn find_roots<F: Fn(f64) -> f64>(f: &F, intervals: Vec<(f64, f64)>, config: 
 
 pub fn find_roots_piecewise_with_newton_polishing<F: Fn(f64) -> f64, G: Fn(f64) -> f64, D: Fn(f64) -> f64>(g: &G, f: &F, df: &D, intervals: Vec<(f64, f64)>, config: Config) -> Result<Vec<f64>, anyhow::Error> {
 
-    let Config { epsilon, delta, ..} = config;
+    let Config {delta, ..} = config;
 
     let a = intervals[0].0;
     let b = intervals[intervals.len() - 1].1;
@@ -197,7 +197,7 @@ pub fn find_roots_piecewise_with_newton_polishing<F: Fn(f64) -> f64, G: Fn(f64) 
 
 pub fn find_roots_with_secant_polishing<F: Fn(f64) -> f64, G: Fn(f64) -> f64>(g: &G, f: &F, a: f64, b: f64, config: Config) -> Result<Vec<f64>, anyhow::Error> {
 
-    let Config { epsilon, delta, ..} = config;
+    let Config {delta, ..} = config;
 
     let roots = find_roots(g, vec![(a, b)], config)?;
     let mut polished_roots: Vec<f64> = Vec::new();
@@ -217,7 +217,7 @@ pub fn find_roots_with_secant_polishing<F: Fn(f64) -> f64, G: Fn(f64) -> f64>(g:
 
 pub fn find_roots_with_newton_polishing<F: Fn(f64) -> f64, G: Fn(f64) -> f64, D: Fn(f64) -> f64>(g: &G, f: &F, df: &D, a: f64, b: f64, config: Config) -> Result<Vec<f64>, anyhow::Error> {
 
-    let Config { epsilon, delta, ..} = config;
+    let Config {delta, ..} = config;
 
     let roots = find_roots(g, vec![(a, b)], config)?;
     let mut polished_roots: Vec<f64> = Vec::new();
@@ -238,7 +238,7 @@ pub fn find_roots_with_newton_polishing<F: Fn(f64) -> f64, G: Fn(f64) -> f64, D:
 
 pub fn find_roots_piecewise_with_secant_polishing<F: Fn(f64) -> f64, G: Fn(f64) -> f64>(g: &G, f: &F, intervals: Vec<(f64, f64)>, config: Config) -> Result<Vec<f64>, anyhow::Error> {
 
-    let Config { epsilon, delta, ..} = config;
+    let Config {delta, ..} = config;
 
     let a = intervals[0].0;
     let b = intervals[intervals.len() - 1].1;
