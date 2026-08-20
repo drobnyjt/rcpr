@@ -10,6 +10,7 @@ use anyhow::{Result, anyhow, ensure};
 pub mod chebyshev;
 pub mod rootfinders;
 pub mod polish;
+#[cfg(feature="python")]
 pub mod python;
 
 pub fn monomial_frobenius_matrix(c_j: DVector<f64>) -> DMatrix<f64> {

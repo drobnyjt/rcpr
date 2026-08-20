@@ -3,9 +3,12 @@ pub use super::*;
 use crate::chebyshev::{chebyshev_subdivide, chebyshev_frobenius_matrix, truncate_chebyshev_coefficients};
 use crate::polish::*;
 use serde::*;
+use nalgebra::Schur;
 
 const DEFAULT_EPSILON: f64 = 1e-6;
 const DEFAULT_DELTA: f64 = 1e-6;
+const SCHUR_DECOMPOSITION_EPSILON: f64 = 1e-9;
+const SCHUR_DECOMPOSITION_MAX_ITERATIONS: usize = 100;
 
 const fn default_epsilon() -> f64 {
     DEFAULT_EPSILON
@@ -141,11 +144,25 @@ pub fn find_roots<F: Fn(f64) -> f64>(f: &F, intervals: Vec<(f64, f64)>, config: 
         //https://doi.org/10.1007/BF02165404
         balance_parlett_reinsch(&mut A);
 
-        let eigenvalues = A.complex_eigenvalues();
-
-        for eigenvalue in eigenvalues.iter() {
-            if (eigenvalue.re.abs() <= 1. + f64::EPSILON) && (eigenvalue.im.abs() <= complex_threshold){
-                roots.push(eigenvalue.re*(i.1 - i.0)/2. + (i.1 + i.0)/2.)
+        // I mistakenly removed this because Issue #611 in nalgebra,
+        // which requires this hack to prevent infinite loops, was resolved,
+        // but the fix is not actually implemented in any release. Hence, back 
+        // in it goes.
+        if let Some(schur_matrix) = Schur::try_new(
+            A,
+            SCHUR_DECOMPOSITION_EPSILON,
+            SCHUR_DECOMPOSITION_MAX_ITERATIONS
+        ) {
+            let eigenvalues = schur_matrix.complex_eigenvalues();
+            for eigenvalue in eigenvalues.iter() {
+                if (eigenvalue.re.abs() <= 1. + f64::EPSILON) && (eigenvalue.im.abs() <= complex_threshold){
+                    roots.push(eigenvalue.re*(i.1 - i.0)/2. + (i.1 + i.0)/2.)
+                }
+            }
+        } else {
+            let subroots = find_roots(f, vec![(i.0, i.0 + (i.1 - i.0)/2.), (i.0 + (i.1 - i.0)/2., i.1)], config)?;
+            for root in subroots {
+                roots.push(root)
             }
         }
     }
