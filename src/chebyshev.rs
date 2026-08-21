@@ -113,7 +113,8 @@ pub fn truncate_chebyshev_coefficients(a_j: DVector<f64>, epsilon: f64) -> DVect
     for (index, &a) in a_j.iter().rev().enumerate() {
         if a.abs() > epsilon {
 
-            let stop: usize = a_j.len() - index - 1;
+            // Retain at least 1 coefficient
+            let stop: usize = (a_j.len() - index - 1).max(1);
 
             return DVector::from(
                 a_j.iter()

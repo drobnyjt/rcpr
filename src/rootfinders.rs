@@ -134,7 +134,7 @@ pub fn find_roots<F: Fn(f64) -> f64>(f: &F, intervals: Vec<(f64, f64)>, config: 
 
         //If len(a_j) is 1, then its eigenvalue is simply itself, and the interval can be skipped.
         if a_j.len() == 1 {
-            roots.push(a_j[0]*(i.1 - i.0)/2. + (i.1 + i.0)/2.);
+            // roots.push(a_j[0]*(i.1 - i.0)/2. + (i.1 + i.0)/2.);
             continue
         }
 
