@@ -74,5 +74,3 @@ pub fn secant_polish_py<'py>(_python: Python<'py>, f: &Bound<'py, PyAny>, x0: f6
     let f = {|x| f.clone().call1((x,)).unwrap().extract().unwrap()};
     secant_polish(&f, x0, iter_max, epsilon).map_err(|e| PyRuntimeError::new_err(format!("Secant polishing failed: {}", e)))
 }
-
-//pub fn secant_polish<F: Fn(f64) -> f64>(f: &F, x0: f64, iter_max: usize, epsilon: f64) -> Result<f64, anyhow::Error> {

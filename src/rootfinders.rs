@@ -38,6 +38,10 @@ const fn default_float_1_10000() -> f64 {
     1./10000.
 }
 
+const fn default_float_1_e_minus_12() -> f64 {
+    1e-12
+}
+
 #[derive(Clone, Copy, Deserialize)]
 pub struct Config {
     #[serde(default = "default_epsilon")]
@@ -50,8 +54,6 @@ pub struct Config {
     N_max: usize,
     #[serde(default = "default_float_1_10000")]
     complex_threshold: f64,
-    #[serde(default = "default_float_zero")]
-    truncation_threshold: f64,
     #[serde(default = "default_float_max")]
     far_from_zero: f64, 
     #[serde(default = "default_float_zero")]
@@ -66,7 +68,6 @@ impl Default for Config {
             N0: default_usize_2(),
             N_max: default_usize_128(),
             complex_threshold: default_float_1_10000(),
-            truncation_threshold: default_float_zero(),
             far_from_zero: default_float_max(),
             interval_limit: default_float_zero(),
         }
@@ -80,7 +81,6 @@ impl Config {
         N0: usize,
         N_max: usize,
         complex_threshold: f64,
-        truncation_threshold: f64,
         far_from_zero: f64,
         interval_limit: f64
     ) -> Config {
@@ -90,7 +90,6 @@ impl Config {
             N0,
             N_max,
             complex_threshold,
-            truncation_threshold,
             far_from_zero,
             interval_limit
         }
@@ -99,12 +98,11 @@ impl Config {
 
 pub fn find_roots<F: Fn(f64) -> f64>(f: &F, intervals: Vec<(f64, f64)>, config: Config) -> Result<Vec<f64>, anyhow::Error> {
 
-    let Config { epsilon, N0, N_max, complex_threshold, truncation_threshold, far_from_zero, interval_limit, .. } = config;
+    let Config { epsilon, N0, N_max, complex_threshold, far_from_zero, interval_limit, .. } = config;
 
     ensure!(N0 > 0, "N0 cannot be zero.");
     ensure!(N_max >= N0, "N_max cannot be smaller than N0.");
     ensure!(complex_threshold >= 0., "Complex threshold cannot be less than zero.");
-    ensure!(truncation_threshold >= 0., "Truncation threshold cannot be less than zero.");
     ensure!(interval_limit >= 0., "Interval limit cannot be less than zero.");
     ensure!(far_from_zero >= 0., "Far-from-zero threshold cannot be less than zero.");
 
@@ -130,7 +128,7 @@ pub fn find_roots<F: Fn(f64) -> f64>(f: &F, intervals: Vec<(f64, f64)>, config: 
         }
 
         //Truncate trailing chebyshev coefficients if below threshold
-        let a_j = truncate_chebyshev_coefficients(c, truncation_threshold);
+        let a_j = truncate_chebyshev_coefficients(c)?;
 
         //If len(a_j) is 1, then its eigenvalue is simply itself, and the interval can be skipped.
         if a_j.len() == 1 {

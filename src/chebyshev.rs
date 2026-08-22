@@ -5,7 +5,6 @@ pub fn chebyshev_adaptive<F: Fn(f64) -> f64>(f: &F, a: f64, b: f64, N0: usize, e
     //Adaptive Chebyshev approximation of the function f on the interval [a, b], which starts from degree N0 and doubles
     //the degree each iteration until the error is less than epsilon, starting with order N0 returning the Chebyshev coefficients a if
     //convergence is reached before the degree exceeds N_max.
-    //
     let mut a_0 = chebyshev_coefficients(f, a, b, N0);
     let mut N0 = N0;
 
@@ -108,24 +107,31 @@ fn chebyshev_coefficients<F: Fn(f64) -> f64>(f: &F, a: f64, b: f64, N: usize) ->
     I_jk*f_xk
 }
 
-pub fn truncate_chebyshev_coefficients(a_j: DVector<f64>, epsilon: f64) -> DVector<f64> {
+pub fn truncate_chebyshev_coefficients(a_j: DVector<f64>) -> Result<DVector<f64>> {
+
+    // Boyd, Solving Transcendental Equations, 3.4
+    // This is an estimate for the truncation error - drop coefficients below this value.
+    let truncation_error = (a_j.len() - 1) as f64 * f64::EPSILON * a_j.iter()
+        .map(|x| x.abs())
+        .max_by(f64::total_cmp)
+        .ok_or(anyhow!("Failed to calculate maximum coefficient."))?;
 
     for (index, &a) in a_j.iter().rev().enumerate() {
-        if a.abs() > epsilon {
+        if a.abs() > truncation_error {
 
             // Retain at least 1 coefficient
             let stop: usize = (a_j.len() - index - 1).max(1);
 
-            return DVector::from(
+            return Ok(DVector::from(
                 a_j.iter()
                 .enumerate()
                 .filter(|(i, _)| i <= &stop)
                 .map(|(_, &a)| a)
-                .collect::<Vec<f64>>()
+                .collect::<Vec<f64>>())
             )
         }
     }
-    a_j
+    Ok(a_j)
 }
 
 pub fn chebyshev_frobenius_matrix(a_j: DVector<f64>) -> DMatrix<f64> {
