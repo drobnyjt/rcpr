@@ -114,7 +114,7 @@ pub fn find_roots<F: Fn(f64) -> f64>(f: &F, intervals: Vec<(f64, f64)>, config: 
     let (intervals, coefficients) = chebyshev_subdivide(f, intervals, N0, epsilon, N_max, interval_limit)?;
     let mut roots: Vec<f64> = Vec::new();
 
-    for (i, c) in intervals.iter().zip(coefficients).filter(|(_, c)| !c.is_empty() ) {
+    for (index, (i, c)) in intervals.iter().zip(coefficients).filter(|(_, c)| !c.is_empty() ).enumerate() {
 
         let xk = lobatto_grid(i.0, i.1, c.len() - 1);
         let fxk: Vec<f64> = xk.iter().map(|&x| f(x)).collect();
@@ -153,7 +153,11 @@ pub fn find_roots<F: Fn(f64) -> f64>(f: &F, intervals: Vec<(f64, f64)>, config: 
         ) {
             let eigenvalues = schur_matrix.complex_eigenvalues();
             for eigenvalue in eigenvalues.iter() {
-                if (eigenvalue.re.abs() <= 1. + f64::EPSILON) && (eigenvalue.im.abs() <= complex_threshold){
+                if (eigenvalue.im.abs() <= complex_threshold) && (eigenvalue.re.abs() < 1.0 + f64::EPSILON) {
+                    if (index < intervals.len() - 1) && (1.0 - eigenvalue.re) <= f64::EPSILON {
+                        // if not right-most interval, attempt to drop eigenvalues on right boundary
+                        continue
+                    }
                     roots.push(eigenvalue.re*(i.1 - i.0)/2. + (i.1 + i.0)/2.)
                 }
             }
