@@ -5,9 +5,9 @@ use crate::polish::*;
 use serde::*;
 use nalgebra::Schur;
 
-const DEFAULT_EPSILON: f64 = 1e-6;
-const DEFAULT_DELTA: f64 = 1e-6;
-const SCHUR_DECOMPOSITION_EPSILON: f64 = 1e-9;
+const DEFAULT_EPSILON: f64 = 1e-12;
+const DEFAULT_DELTA: f64 = 1e-13;
+const SCHUR_DECOMPOSITION_EPSILON: f64 = 1e-16;
 const SCHUR_DECOMPOSITION_MAX_ITERATIONS: usize = 128;
 
 const fn default_epsilon() -> f64 {
@@ -45,19 +45,19 @@ const fn default_float_1_e_minus_12() -> f64 {
 #[derive(Clone, Copy, Deserialize)]
 pub struct Config {
     #[serde(default = "default_epsilon")]
-    epsilon: f64,
+    pub epsilon: f64,
     #[serde(default = "default_delta")]
-    delta: f64,
+    pub delta: f64,
     #[serde(default = "default_usize_2")]
-    N0: usize,
+    pub N0: usize,
     #[serde(default = "default_usize_128")]
-    N_max: usize,
+    pub N_max: usize,
     #[serde(default = "default_float_1_10000")]
-    complex_threshold: f64,
+    pub complex_threshold: f64,
     #[serde(default = "default_float_max")]
-    far_from_zero: f64, 
+    pub far_from_zero: f64, 
     #[serde(default = "default_float_zero")]
-    interval_limit: f64,
+    pub interval_limit: f64,
 }
 
 impl Default for Config {
@@ -153,7 +153,7 @@ pub fn find_roots<F: Fn(f64) -> f64>(f: &F, intervals: Vec<(f64, f64)>, config: 
         ) {
             let eigenvalues = schur_matrix.complex_eigenvalues();
             for eigenvalue in eigenvalues.iter() {
-                if (eigenvalue.im.abs() <= complex_threshold) && (eigenvalue.re.abs() < 1.0 + f64::EPSILON) {
+                if (eigenvalue.im.abs() <= complex_threshold) && (eigenvalue.re.abs() < 1.0 + config.epsilon) {
                     if (index < intervals.len() - 1) && (1.0 - eigenvalue.re) <= f64::EPSILON {
                         // if not right-most interval, attempt to drop eigenvalues on right boundary
                         continue
