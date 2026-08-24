@@ -57,9 +57,9 @@ These parameters are:
 
 Args:
 
-* ` G: &dyn Fn(f64) -> f64`: the approriately scaled function G(x) = F(x)S(x), where F(x) is the orignial function and S(x) is a scaling function with no zeros on the interval [a,b], to find roots of. For polynomials of degree n on the interval [0, b] , a good general-purpose scaling function is `1/(1 + (r/a)^(m))` where a is an appropriate scaling factor to keep `r ~ O(1)` and `1 <= m <= n`. This is only important for functions with a very large range over a small domain; for well-behaved functions, S(x) can be 1.
-* `F: &dyn Fn(f64) -> f64`: the original function to find roots of on the interval [a,b]
-* `DF: &dyn Fn(f64) -> f64`: the derivative of the original funciton w.r.t. the independent variable.
+* ` G: Fn(f64) -> f64`: the approriately scaled function G(x) = F(x)S(x), where F(x) is the orignial function and S(x) is a scaling function with no zeros on the interval [a,b], to find roots of. For polynomials of degree n on the interval [0, b] , a good general-purpose scaling function is `1/(1 + (r/a)^(m))` where a is an appropriate scaling factor to keep `r ~ O(1)` and `1 <= m <= n`. This is only important for functions with a very large range over a small domain; for well-behaved functions, S(x) can be 1.
+* `F: Fn(f64) -> f64`: the original function to find roots of on the interval [a,b]
+* `DF: Fn(f64) -> f64`: the derivative of the original funciton w.r.t. the independent variable.
 * `a, b: f64, f64`: the lower and upper bounds of the interval to find roots of F(x) in.
 * `config`: Config struct defined above. 
 
@@ -81,8 +81,8 @@ Returns:
 
 Args:
 
-* ` G: &dyn Fn(f64) -> f64`: the approriately scaled function G(x) = F(x)S(x), where F(x) is the orignial function and S(x) is a scaling function with no zeros on the interval [a,b], to find roots of. For polynomials of degree n on the interval [0, b] , a good general-purpose scaling function is `1/(1 + (r/a)^(m))` where a is an appropriate scaling factor to keep `r ~ O(1)` and `1 <= m <= n`. This is only important for functions with a very large range over a small domain; for well-behaved functions, S(x) can be 1.
-* `F: &dyn Fn(f64) -> f64`: the original function to find roots of on the interval [a,b]
+* ` G: Fn(f64) -> f64`: the approriately scaled function G(x) = F(x)S(x), where F(x) is the orignial function and S(x) is a scaling function with no zeros on the interval [a,b], to find roots of. For polynomials of degree n on the interval [0, b] , a good general-purpose scaling function is `1/(1 + (r/a)^(m))` where a is an appropriate scaling factor to keep `r ~ O(1)` and `1 <= m <= n`. This is only important for functions with a very large range over a small domain; for well-behaved functions, S(x) can be 1.
+* `F: Fn(f64) -> f64`: the original function to find roots of on the interval [a,b]
 * `a, b: f64, f64`: the lower and upper bounds of the interval to find roots of F(x) in.
 * `N0: usize`: the initial degree of Chebyshev polynomial used to approximate G(x)
 
