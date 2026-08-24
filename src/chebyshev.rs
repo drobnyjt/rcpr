@@ -5,14 +5,13 @@ pub fn chebyshev_adaptive<F: Fn(f64) -> f64>(f: &F, a: f64, b: f64, N0: usize, e
     //Adaptive Chebyshev approximation of the function f on the interval [a, b], which starts from degree N0 and doubles
     //the degree each iteration until the error is less than epsilon, starting with order N0 returning the Chebyshev coefficients a if
     //convergence is reached before the degree exceeds N_max.
-    //
-    let mut a_0 = chebyshev_coefficients(f, a, b, N0);
+    let (mut a_0, mut f_0) = chebyshev_coefficients_fast(f, a, b, N0, DVector::<f64>::from(vec![]));
     let mut N0 = N0;
 
     loop {
 
         let N1 = 2*N0;
-        let a_1 = chebyshev_coefficients(f, a, b, N1);
+        let (a_1, f_1) = chebyshev_coefficients_fast(f, a, b, N1, f_0);
 
         //Error is defined as sum(delta) where delta_2N = fN(x) - f2N(x)
         //Since the N0..2N0 terms of fN are zero, this sum can be split into two pieces
@@ -23,6 +22,7 @@ pub fn chebyshev_adaptive<F: Fn(f64) -> f64>(f: &F, a: f64, b: f64, N0: usize, e
         }
 
         a_0 = a_1;
+        f_0 = f_1;
         N0 = N1;
     }
 }
@@ -79,12 +79,10 @@ pub fn chebyshev_subdivide<F: Fn(f64) -> f64>(f: &F, intervals: Vec<(f64, f64)>,
 
         } else {
             let a1 = a;
-            let b1 = a + (b - a)/2.;
-
-            let a2 = a + (b - a)/2.;
+            let mid = a + (b - a)/2.;
             let b2 = b;
 
-            let result = chebyshev_subdivide(f, vec![(a1, b1), (a2, b2)], N0, epsilon, N_max, interval_limit);
+            let result = chebyshev_subdivide(f, vec![(a1, mid), (mid, b2)], N0, epsilon, N_max, interval_limit);
             if let Ok((intervals_new, coefficients_new)) = result {
                 for (i, c) in intervals_new.iter().zip(coefficients_new) {
                     intervals_out.push(*i);
@@ -98,50 +96,78 @@ pub fn chebyshev_subdivide<F: Fn(f64) -> f64>(f: &F, intervals: Vec<(f64, f64)>,
     Ok((intervals_out, coefficients))
 }
 
-fn chebyshev_coefficients<F: Fn(f64) -> f64>(f: &F, a: f64, b: f64, N: usize) -> DVector<f64> {
+fn chebyshev_coefficients_fast<F: Fn(f64) -> f64>(f: &F, a: f64, b: f64, N: usize, previous: DVector<f64>) -> (DVector<f64>, DVector<f64>) {
     //Given a function f and an interval [a, b], returns a vector of the Chebyshev interpolation
     //coefficients on that interval of order N.
     let xk = lobatto_grid(a, b, N);
     let I_jk = interpolation_matrix(N);
-    let f_xk: DVector<f64> = DVector::<f64>::from(xk.iter().map(|&x| f(x)).collect::<Vec<f64>>());
 
-    I_jk*f_xk
+    if previous.is_empty() {
+        let f_xk = DVector::<f64>::from_fn(N + 1, |i, _| f(xk[i]));
+        return (I_jk*f_xk.clone(), f_xk)
+    }
+
+    let f_xk = DVector::<f64>::from(xk.iter()
+        .enumerate()
+        .map(|(i, &x_i)| if i%2==0 {
+            previous[i/2]
+        } else {
+            f(x_i)
+        }
+    ).collect::<Vec<f64>>());
+    
+    (I_jk*f_xk.clone(), f_xk)
 }
 
-pub fn truncate_chebyshev_coefficients(a_j: DVector<f64>, epsilon: f64) -> DVector<f64> {
+
+pub fn truncate_chebyshev_coefficients(a_j: DVector<f64>) -> Result<DVector<f64>> {
+
+    // Boyd, Solving Transcendental Equations, 3.4
+    // This is an estimate for the truncation error - drop coefficients below this value.
+    let truncation_error = (a_j.len() - 1) as f64 * f64::EPSILON * a_j.iter()
+        .map(|x| x.abs())
+        .max_by(f64::total_cmp)
+        .ok_or(anyhow!("Failed to calculate maximum coefficient."))?;
 
     for (index, &a) in a_j.iter().rev().enumerate() {
-        if a.abs() > epsilon {
+        if a.abs() > truncation_error {
 
-            let stop: usize = a_j.len() - index - 1;
+            // Retain at least 1 coefficient
+            let stop: usize = (a_j.len() - index - 1).max(1);
 
-            return DVector::from(
+            return Ok(DVector::from(
                 a_j.iter()
                 .enumerate()
                 .filter(|(i, _)| i <= &stop)
                 .map(|(_, &a)| a)
-                .collect::<Vec<f64>>()
+                .collect::<Vec<f64>>())
             )
         }
     }
-    a_j
+    Ok(a_j)
 }
 
-pub fn chebyshev_frobenius_matrix(a_j: DVector<f64>) -> DMatrix<f64> {
+pub fn chebyshev_frobenius_matrix(a_j: DVector<f64>) -> Result<DMatrix<f64>> {
     let N: usize = a_j.len() - 1;
     let mut A_jk: DMatrix<f64> = DMatrix::zeros(N, N);
 
-    for k in 0..N {
-        A_jk[(0, k)] = delta(1, k as i32);
-        A_jk[(N - 1, k)] = (-1.)*(a_j[k]/2./a_j[N]) + (1./2.)*delta(k as i32, N as i32 - 2);
+    let inv_2_aj_N = 1./2./a_j[N];
+
+    if inv_2_aj_N.is_nan() || inv_2_aj_N.is_infinite() {
+        return Err(anyhow!("Invalid division detected in companion matrix."))
     }
 
     for k in 0..N {
-        for j in 1..N - 1 {
-            A_jk[(j, k)] = (delta(j as i32, k as i32 + 1) + delta(j as i32, k as i32 - 1))/2.;
-        }
+        A_jk[(0, k)] = delta(1, k as i32);
+        A_jk[(N - 1, k)] = (-1.)*(a_j[k]*inv_2_aj_N) + (1./2.)*delta(k as i32, N as i32 - 2);
     }
-    A_jk
+
+    for j in 1..N - 1 {
+        A_jk[(j, j - 1)] = 0.5;
+        A_jk[(j, j + 1)] = 0.5;
+    }
+
+    Ok(A_jk)
 }
 
 fn p(j: usize, N: usize) -> f64 {

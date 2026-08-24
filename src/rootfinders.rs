@@ -5,9 +5,9 @@ use crate::polish::*;
 use serde::*;
 use nalgebra::Schur;
 
-const DEFAULT_EPSILON: f64 = 1e-6;
-const DEFAULT_DELTA: f64 = 1e-6;
-const SCHUR_DECOMPOSITION_EPSILON: f64 = 1e-9;
+const DEFAULT_EPSILON: f64 = 1e-12;
+const DEFAULT_DELTA: f64 = 1e-13;
+const SCHUR_DECOMPOSITION_EPSILON: f64 = 1e-16;
 const SCHUR_DECOMPOSITION_MAX_ITERATIONS: usize = 128;
 
 const fn default_epsilon() -> f64 {
@@ -26,7 +26,7 @@ const fn default_usize_2() -> usize {
     2
 }
 
-const fn default_usize_128() -> usize {
+const fn default_usize_512() -> usize {
     512
 }
 
@@ -38,24 +38,26 @@ const fn default_float_1_10000() -> f64 {
     1./10000.
 }
 
+const fn default_float_1_e_minus_12() -> f64 {
+    1e-12
+}
+
 #[derive(Clone, Copy, Deserialize)]
 pub struct Config {
     #[serde(default = "default_epsilon")]
-    epsilon: f64,
+    pub epsilon: f64,
     #[serde(default = "default_delta")]
-    delta: f64,
+    pub delta: f64,
     #[serde(default = "default_usize_2")]
-    N0: usize,
-    #[serde(default = "default_usize_128")]
-    N_max: usize,
+    pub N0: usize,
+    #[serde(default = "default_usize_512")]
+    pub N_max: usize,
     #[serde(default = "default_float_1_10000")]
-    complex_threshold: f64,
-    #[serde(default = "default_float_zero")]
-    truncation_threshold: f64,
+    pub complex_threshold: f64,
     #[serde(default = "default_float_max")]
-    far_from_zero: f64, 
+    pub far_from_zero: f64, 
     #[serde(default = "default_float_zero")]
-    interval_limit: f64,
+    pub interval_limit: f64,
 }
 
 impl Default for Config {
@@ -64,11 +66,10 @@ impl Default for Config {
             epsilon: default_epsilon(),
             delta: default_delta(),
             N0: default_usize_2(),
-            N_max: default_usize_128(),
+            N_max: default_usize_512(),
             complex_threshold: default_float_1_10000(),
-            truncation_threshold: default_float_zero(),
             far_from_zero: default_float_max(),
-            interval_limit: default_float_zero(),
+            interval_limit: default_float_1_e_minus_12(),
         }
     }
 }
@@ -80,7 +81,6 @@ impl Config {
         N0: usize,
         N_max: usize,
         complex_threshold: f64,
-        truncation_threshold: f64,
         far_from_zero: f64,
         interval_limit: f64
     ) -> Config {
@@ -90,7 +90,6 @@ impl Config {
             N0,
             N_max,
             complex_threshold,
-            truncation_threshold,
             far_from_zero,
             interval_limit
         }
@@ -99,12 +98,11 @@ impl Config {
 
 pub fn find_roots<F: Fn(f64) -> f64>(f: &F, intervals: Vec<(f64, f64)>, config: Config) -> Result<Vec<f64>, anyhow::Error> {
 
-    let Config { epsilon, N0, N_max, complex_threshold, truncation_threshold, far_from_zero, interval_limit, .. } = config;
+    let Config { epsilon, N0, N_max, complex_threshold, far_from_zero, interval_limit, .. } = config;
 
     ensure!(N0 > 0, "N0 cannot be zero.");
     ensure!(N_max >= N0, "N_max cannot be smaller than N0.");
     ensure!(complex_threshold >= 0., "Complex threshold cannot be less than zero.");
-    ensure!(truncation_threshold >= 0., "Truncation threshold cannot be less than zero.");
     ensure!(interval_limit >= 0., "Interval limit cannot be less than zero.");
     ensure!(far_from_zero >= 0., "Far-from-zero threshold cannot be less than zero.");
 
@@ -116,7 +114,7 @@ pub fn find_roots<F: Fn(f64) -> f64>(f: &F, intervals: Vec<(f64, f64)>, config: 
     let (intervals, coefficients) = chebyshev_subdivide(f, intervals, N0, epsilon, N_max, interval_limit)?;
     let mut roots: Vec<f64> = Vec::new();
 
-    for (i, c) in intervals.iter().zip(coefficients).filter(|(_, c)| !c.is_empty() ) {
+    for (index, (i, c)) in intervals.iter().zip(coefficients).filter(|(_, c)| !c.is_empty() ).enumerate() {
 
         let xk = lobatto_grid(i.0, i.1, c.len() - 1);
         let fxk: Vec<f64> = xk.iter().map(|&x| f(x)).collect();
@@ -130,15 +128,15 @@ pub fn find_roots<F: Fn(f64) -> f64>(f: &F, intervals: Vec<(f64, f64)>, config: 
         }
 
         //Truncate trailing chebyshev coefficients if below threshold
-        let a_j = truncate_chebyshev_coefficients(c, truncation_threshold);
+        let a_j = truncate_chebyshev_coefficients(c)?;
 
         //If len(a_j) is 1, then its eigenvalue is simply itself, and the interval can be skipped.
         if a_j.len() == 1 {
-            roots.push(a_j[0]*(i.1 - i.0)/2. + (i.1 + i.0)/2.);
+            // roots.push(a_j[0]*(i.1 - i.0)/2. + (i.1 + i.0)/2.);
             continue
         }
 
-        let mut A = chebyshev_frobenius_matrix(a_j);
+        let mut A = chebyshev_frobenius_matrix(a_j)?;
 
         //Parlett-Reinsch balancing conditions the values of the matrix to avoid floating point errors
         //https://doi.org/10.1007/BF02165404
@@ -155,7 +153,11 @@ pub fn find_roots<F: Fn(f64) -> f64>(f: &F, intervals: Vec<(f64, f64)>, config: 
         ) {
             let eigenvalues = schur_matrix.complex_eigenvalues();
             for eigenvalue in eigenvalues.iter() {
-                if (eigenvalue.re.abs() <= 1. + f64::EPSILON) && (eigenvalue.im.abs() <= complex_threshold){
+                if (eigenvalue.im.abs() <= complex_threshold) && (eigenvalue.re.abs() < 1.0 + config.epsilon) {
+                    if (index < intervals.len() - 1) && (1.0 - eigenvalue.re) <= f64::EPSILON {
+                        // if not right-most interval, attempt to drop eigenvalues on right boundary
+                        continue
+                    }
                     roots.push(eigenvalue.re*(i.1 - i.0)/2. + (i.1 + i.0)/2.)
                 }
             }
@@ -186,7 +188,7 @@ pub fn find_roots_piecewise_with_newton_polishing<F: Fn(f64) -> f64, G: Fn(f64) 
         if let Ok(root_refined) = newton_polish(f, df, *root, NEWTON_MAX_ITERATIONS, delta){
             let correction = root_refined - *root;
 
-            if ((correction/root_refined).abs() < 1.) & (root_refined >= a) & (root_refined <= b) {
+            if ((correction/root_refined).abs() < 1.) && (root_refined >= a) && (root_refined <= b) {
                 polished_roots.push(root_refined);
             }
         };
@@ -207,7 +209,7 @@ pub fn find_roots_with_secant_polishing<F: Fn(f64) -> f64, G: Fn(f64) -> f64>(g:
         if let Ok(root_refined) = secant_polish(f, *root, SECANT_MAX_ITERATIONS, delta){
             let correction = root_refined - *root;
 
-            if ((correction/root_refined).abs() < 1.) & (root_refined >= a) & (root_refined <= b) {
+            if ((correction/root_refined).abs() < 1.) && (root_refined >= a) && (root_refined <= b) {
                 polished_roots.push(root_refined);
             }
         };
@@ -228,7 +230,7 @@ pub fn find_roots_with_newton_polishing<F: Fn(f64) -> f64, G: Fn(f64) -> f64, D:
 
             let correction = root_refined - *root;
 
-            if ((correction/root_refined).abs() < 1.) & (root_refined >= a) & (root_refined <= b) {
+            if ((correction/root_refined).abs() < 1.) && (root_refined >= a) && (root_refined <= b) {
                 polished_roots.push(root_refined);
             }
         };
@@ -250,7 +252,7 @@ pub fn find_roots_piecewise_with_secant_polishing<F: Fn(f64) -> f64, G: Fn(f64) 
         if let Ok(root_refined) = secant_polish(f, *root, SECANT_MAX_ITERATIONS, delta){
             let correction = root_refined - *root;
 
-            if ((correction/root_refined).abs() < 1.) & (root_refined >= a) & (root_refined <= b) {
+            if ((correction/root_refined).abs() < 1.) && (root_refined >= a) && (root_refined <= b) {
                 polished_roots.push(root_refined);
             }
         };

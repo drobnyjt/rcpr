@@ -1,17 +1,14 @@
-use super::*;
-
 #[cfg(feature = "python")]
 use pyo3::prelude::*;
 #[cfg(feature = "python")]
 use pyo3::exceptions::*;
-#[cfg(feature = "python")]
-use pyo3::types::*;
 #[cfg(feature = "python")]
 use pythonize::*;
 
 use crate::chebyshev::{chebyshev_adaptive, chebyshev_approximate, chebyshev_subdivide};
 use crate::rootfinders::*;
 use crate::polish::secant_polish;
+use crate::lobatto_grid;
 
 #[cfg(feature = "python")]
 #[pymodule]
@@ -30,6 +27,18 @@ mod pyacpr {
 
     #[pymodule_export]
     use super::secant_polish_py;
+
+    #[pymodule_export]
+    use super::lobatto_grid_py;
+}
+#[cfg(feature = "python")]
+#[pyfunction]
+pub fn lobatto_grid_py<'py>(_python: Python<'py>, a: f64, b: f64, N: usize) -> PyResult<Vec<f64>> {
+    if (b > a) && (N > 0) {
+        Ok(lobatto_grid(a, b, N))
+    } else {
+        Err(PyValueError::new_err(format!("Invalid input to Lobatto Grid.")))
+    }
 }
 
 #[cfg(feature = "python")]
@@ -74,5 +83,3 @@ pub fn secant_polish_py<'py>(_python: Python<'py>, f: &Bound<'py, PyAny>, x0: f6
     let f = {|x| f.clone().call1((x,)).unwrap().extract().unwrap()};
     secant_polish(&f, x0, iter_max, epsilon).map_err(|e| PyRuntimeError::new_err(format!("Secant polishing failed: {}", e)))
 }
-
-//pub fn secant_polish<F: Fn(f64) -> f64>(f: &F, x0: f64, iter_max: usize, epsilon: f64) -> Result<f64, anyhow::Error> {

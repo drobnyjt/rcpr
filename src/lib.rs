@@ -59,7 +59,7 @@ fn monomial_fiedler_matrix(c_j: DVector<f64>) -> DMatrix<f64> {
     A_jk
 }
 
-fn lobatto_grid(a: f64, b: f64, N: usize) -> Vec<f64> {
+pub fn lobatto_grid(a: f64, b: f64, N: usize) -> Vec<f64> {
     //Returns a Lobatto Grid on the interval [a, b] of order N.
     (0..=N).map(|k| (b - a)/2.*(PI*k as f64/N as f64).cos() + (b + a)/2.).collect::<Vec<f64>>()
 }
