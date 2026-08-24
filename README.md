@@ -26,7 +26,6 @@ Config {
     N0,
     N_max,
     complex_threshold,
-    truncation_threshold,
     far_from_zero,
     interval_limit
 }
@@ -39,7 +38,6 @@ let config = Config::new(
     N0,
     N_max,
     complex_threshold,
-    truncation_threshold,
     far_from_zero,
     interval_limit
 ) 
@@ -48,10 +46,9 @@ These parameters are:
 * `N0: usize`: the initial degree of Chebyshev polynomial used to approximate G(x) (default: 2)
 * `epsilon: f64`: the absolute tolerance of the Chebyshev approximation to G(x) (default: 1e-6)
 * `delta: f64`: the (hybrid) relative error on step size of root polishers (default: 1e-6)
-* `N_max: usize`: the maximum degree of Chebyshev polynomial before the interval is subdivided (default: 128) 
+* `N_max: usize`: the maximum degree of Chebyshev polynomial before the interval is subdivided (default: 512) 
 * `complex_threshold: f64`: the threshold of the imaginary part of roots that are near-real that is tolerated (default: 1e-4)
-* `truncation_threshold: f64`: trailing-degree Chebyshev polynomials with coefficients below this value will be ignored as negligible (default: 0)
-* `interval_limit: f64`: if the subdivision algorithm produces an interval below this length, the function will return an Error and abort (default: 1e-4)
+* `interval_limit: f64`: if the subdivision algorithm produces an interval below this length, the function will return an Error and abort (default: 1e-12)
 * `far_from_zero: f64`: if G(x) evaluated at all the Lobatto grid points on an interval `[c, d]` is further than this value from zero, that interval will be assumed to have no roots contained within it (default: float_max)
 
 ## Rootfinders
