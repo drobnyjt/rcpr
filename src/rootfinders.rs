@@ -111,19 +111,16 @@ pub fn find_roots<F: Fn(f64) -> f64>(f: &F, intervals: Vec<(f64, f64)>, config: 
 
     ensure!(b > a, "Invalid interval [{}, {}]", a, b);
 
-    let (intervals, coefficients) = chebyshev_subdivide(f, intervals, N0, epsilon, N_max, interval_limit)?;
+    let (intervals, coefficients, evaluations) = chebyshev_subdivide(f, intervals, N0, epsilon, N_max, interval_limit)?;
     let mut roots: Vec<f64> = Vec::new();
 
-    for (index, (i, c)) in intervals.iter().zip(coefficients).filter(|(_, c)| !c.is_empty() ).enumerate() {
-
-        let xk = lobatto_grid(i.0, i.1, c.len() - 1);
-        let fxk: Vec<f64> = xk.iter().map(|&x| f(x)).collect();
+    for (index, ((i, c), fxk)) in intervals.iter().zip(coefficients).zip(evaluations).filter(|((_, c), _)| !c.is_empty() ).enumerate() {
 
         //Test if all chebyshev interpolants in this interval are far from zero
         //If yes, skip this interval
-        let min = fxk.clone().into_iter().min_by(f64::total_cmp);
-        let max = fxk.into_iter().max_by(f64::total_cmp);
-        if min > Some(far_from_zero) || max < Some(-far_from_zero) {
+        let min = fxk.max();
+        let max = fxk.min();
+        if min > far_from_zero || max < -far_from_zero {
             continue
         }
 
