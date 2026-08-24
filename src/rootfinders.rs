@@ -114,7 +114,11 @@ pub fn find_roots<F: Fn(f64) -> f64>(f: &F, intervals: Vec<(f64, f64)>, config: 
     let (intervals, coefficients, evaluations) = chebyshev_subdivide(f, intervals, N0, epsilon, N_max, interval_limit)?;
     let mut roots: Vec<f64> = Vec::new();
 
-    for (index, ((i, c), fxk)) in intervals.iter().zip(coefficients).zip(evaluations).filter(|((_, c), _)| !c.is_empty() ).enumerate() {
+    for (index, ((i, c), fxk)) in intervals.iter().zip(coefficients).zip(evaluations).enumerate() {
+
+        if c.is_empty() {
+            continue
+        }
 
         //Test if all chebyshev interpolants in this interval are far from zero
         //If yes, skip this interval
