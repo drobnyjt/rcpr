@@ -20,8 +20,23 @@ fn h(x: f64) -> f64 {
     (x - 0.5)*(x - 1.0)*(x + 1.0)*(x +  0.5)
 }
 
-fn dynamic_range(x: f64) -> f64 {
-    return 0.0
+fn q(x: f64) -> f64 {
+    (x.powf(x) - x.powi(2))*(x - 3.).powi(3)
+}
+
+#[test]
+fn dynamic_range() {
+    let a = 0.0;
+    let b = 8.5;
+    let mut config = Config::default();
+    config.epsilon = 1e-4;
+    let mut roots = find_roots(&q, vec![(a, b)], config).unwrap();
+    roots.sort_by(|a, b| a.total_cmp(b));
+        for root in roots.iter() {
+        println!("Dynamic Range Root: {}", root);
+    }
+    assert!((roots[0] - 1.0).abs() < config.epsilon);
+    assert!((roots.last().unwrap() - 3.0).abs() < config.epsilon);
 }
 
 #[test]
