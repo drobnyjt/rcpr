@@ -79,12 +79,10 @@ pub fn chebyshev_subdivide<F: Fn(f64) -> f64>(f: &F, intervals: Vec<(f64, f64)>,
 
         } else {
             let a1 = a;
-            let b1 = a + (b - a)/2.;
-
-            let a2 = a + (b - a)/2.;
+            let mid = a + (b - a)/2.;
             let b2 = b;
 
-            let result = chebyshev_subdivide(f, vec![(a1, b1), (a2, b2)], N0, epsilon, N_max, interval_limit);
+            let result = chebyshev_subdivide(f, vec![(a1, mid), (mid, b2)], N0, epsilon, N_max, interval_limit);
             if let Ok((intervals_new, coefficients_new)) = result {
                 for (i, c) in intervals_new.iter().zip(coefficients_new) {
                     intervals_out.push(*i);
@@ -162,20 +160,22 @@ pub fn chebyshev_frobenius_matrix(a_j: DVector<f64>) -> Result<DMatrix<f64>> {
     let N: usize = a_j.len() - 1;
     let mut A_jk: DMatrix<f64> = DMatrix::zeros(N, N);
 
-    if (1./a_j[N]).is_nan() || (1./a_j[N]).is_infinite() {
+    let inv_2_aj_N = 1./2./a_j[N];
+
+    if inv_2_aj_N.is_nan() || inv_2_aj_N.is_infinite() {
         return Err(anyhow!("Invalid division detected in companion matrix."))
     }
 
     for k in 0..N {
         A_jk[(0, k)] = delta(1, k as i32);
-        A_jk[(N - 1, k)] = (-1.)*(a_j[k]/2./a_j[N]) + (1./2.)*delta(k as i32, N as i32 - 2);
+        A_jk[(N - 1, k)] = (-1.)*(a_j[k]*inv_2_aj_N) + (1./2.)*delta(k as i32, N as i32 - 2);
     }
 
-    for k in 0..N {
-        for j in 1..N - 1 {
-            A_jk[(j, k)] = (delta(j as i32, k as i32 + 1) + delta(j as i32, k as i32 - 1))/2.;
-        }
+    for j in 1..N - 1 {
+        A_jk[(j, j - 1)] = 0.5;
+        A_jk[(j, j + 1)] = 0.5;
     }
+
     Ok(A_jk)
 }
 
