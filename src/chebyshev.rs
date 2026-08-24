@@ -5,13 +5,13 @@ pub fn chebyshev_adaptive<F: Fn(f64) -> f64>(f: &F, a: f64, b: f64, N0: usize, e
     //Adaptive Chebyshev approximation of the function f on the interval [a, b], which starts from degree N0 and doubles
     //the degree each iteration until the error is less than epsilon, starting with order N0 returning the Chebyshev coefficients a if
     //convergence is reached before the degree exceeds N_max.
-    let mut a_0 = chebyshev_coefficients(f, a, b, N0);
+    let (mut a_0, mut f_0) = chebyshev_coefficients_fast(f, a, b, N0, DVector::<f64>::from(vec![]));
     let mut N0 = N0;
 
     loop {
 
         let N1 = 2*N0;
-        let a_1 = chebyshev_coefficients(f, a, b, N1);
+        let (a_1, f_1) = chebyshev_coefficients_fast(f, a, b, N1, f_0);
 
         //Error is defined as sum(delta) where delta_2N = fN(x) - f2N(x)
         //Since the N0..2N0 terms of fN are zero, this sum can be split into two pieces
@@ -22,6 +22,7 @@ pub fn chebyshev_adaptive<F: Fn(f64) -> f64>(f: &F, a: f64, b: f64, N0: usize, e
         }
 
         a_0 = a_1;
+        f_0 = f_1;
         N0 = N1;
     }
 }
@@ -102,10 +103,33 @@ fn chebyshev_coefficients<F: Fn(f64) -> f64>(f: &F, a: f64, b: f64, N: usize) ->
     //coefficients on that interval of order N.
     let xk = lobatto_grid(a, b, N);
     let I_jk = interpolation_matrix(N);
-    let f_xk: DVector<f64> = DVector::<f64>::from(xk.iter().map(|&x| f(x)).collect::<Vec<f64>>());
-
+    let f_xk = DVector::<f64>::from_fn(N + 1, |i, _| f(xk[i]));
     I_jk*f_xk
 }
+
+fn chebyshev_coefficients_fast<F: Fn(f64) -> f64>(f: &F, a: f64, b: f64, N: usize, previous: DVector<f64>) -> (DVector<f64>, DVector<f64>) {
+    //Given a function f and an interval [a, b], returns a vector of the Chebyshev interpolation
+    //coefficients on that interval of order N.
+    let xk = lobatto_grid(a, b, N);
+    let I_jk = interpolation_matrix(N);
+
+    if previous.is_empty() {
+        let f_xk = DVector::<f64>::from_fn(N + 1, |i, _| f(xk[i]));
+        return (I_jk*f_xk.clone(), f_xk)
+    }
+
+    let f_xk = DVector::<f64>::from(xk.iter()
+        .enumerate()
+        .map(|(i, &x_i)| if i%2==0 {
+            previous[i/2]
+        } else {
+            f(x_i)
+        }
+    ).collect::<Vec<f64>>());
+    
+    (I_jk*f_xk.clone(), f_xk)
+}
+
 
 pub fn truncate_chebyshev_coefficients(a_j: DVector<f64>) -> Result<DVector<f64>> {
 
@@ -134,9 +158,13 @@ pub fn truncate_chebyshev_coefficients(a_j: DVector<f64>) -> Result<DVector<f64>
     Ok(a_j)
 }
 
-pub fn chebyshev_frobenius_matrix(a_j: DVector<f64>) -> DMatrix<f64> {
+pub fn chebyshev_frobenius_matrix(a_j: DVector<f64>) -> Result<DMatrix<f64>> {
     let N: usize = a_j.len() - 1;
     let mut A_jk: DMatrix<f64> = DMatrix::zeros(N, N);
+
+    if (1./a_j[N]).is_nan() || (1./a_j[N]).is_infinite() {
+        return Err(anyhow!("Invalid division detected in companion matrix."))
+    }
 
     for k in 0..N {
         A_jk[(0, k)] = delta(1, k as i32);
@@ -148,7 +176,7 @@ pub fn chebyshev_frobenius_matrix(a_j: DVector<f64>) -> DMatrix<f64> {
             A_jk[(j, k)] = (delta(j as i32, k as i32 + 1) + delta(j as i32, k as i32 - 1))/2.;
         }
     }
-    A_jk
+    Ok(A_jk)
 }
 
 fn p(j: usize, N: usize) -> f64 {

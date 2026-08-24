@@ -11,7 +11,7 @@ pub fn newton_polish<F: Fn(f64) -> f64, D: Fn(f64) -> f64>(f: &F, df: &D, x0: f6
     for _ in 1..=iter_max {
         let df_x = df(x);
         let xn = x - f(x)/df_x;
-        if xn.is_nan() || (df_x == 0.0) {
+        if xn.is_nan() || (df_x.abs() < f64::EPSILON) {
             return Err(anyhow!("NaN in Newton iteration."))
         }
         let err = hyberr(xn, x);

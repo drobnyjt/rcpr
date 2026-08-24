@@ -136,7 +136,7 @@ pub fn find_roots<F: Fn(f64) -> f64>(f: &F, intervals: Vec<(f64, f64)>, config: 
             continue
         }
 
-        let mut A = chebyshev_frobenius_matrix(a_j);
+        let mut A = chebyshev_frobenius_matrix(a_j)?;
 
         //Parlett-Reinsch balancing conditions the values of the matrix to avoid floating point errors
         //https://doi.org/10.1007/BF02165404
@@ -188,7 +188,7 @@ pub fn find_roots_piecewise_with_newton_polishing<F: Fn(f64) -> f64, G: Fn(f64) 
         if let Ok(root_refined) = newton_polish(f, df, *root, NEWTON_MAX_ITERATIONS, delta){
             let correction = root_refined - *root;
 
-            if ((correction/root_refined).abs() < 1.) & (root_refined >= a) & (root_refined <= b) {
+            if ((correction/root_refined).abs() < 1.) && (root_refined >= a) && (root_refined <= b) {
                 polished_roots.push(root_refined);
             }
         };
@@ -209,7 +209,7 @@ pub fn find_roots_with_secant_polishing<F: Fn(f64) -> f64, G: Fn(f64) -> f64>(g:
         if let Ok(root_refined) = secant_polish(f, *root, SECANT_MAX_ITERATIONS, delta){
             let correction = root_refined - *root;
 
-            if ((correction/root_refined).abs() < 1.) & (root_refined >= a) & (root_refined <= b) {
+            if ((correction/root_refined).abs() < 1.) && (root_refined >= a) && (root_refined <= b) {
                 polished_roots.push(root_refined);
             }
         };
@@ -230,7 +230,7 @@ pub fn find_roots_with_newton_polishing<F: Fn(f64) -> f64, G: Fn(f64) -> f64, D:
 
             let correction = root_refined - *root;
 
-            if ((correction/root_refined).abs() < 1.) & (root_refined >= a) & (root_refined <= b) {
+            if ((correction/root_refined).abs() < 1.) && (root_refined >= a) && (root_refined <= b) {
                 polished_roots.push(root_refined);
             }
         };
@@ -252,7 +252,7 @@ pub fn find_roots_piecewise_with_secant_polishing<F: Fn(f64) -> f64, G: Fn(f64) 
         if let Ok(root_refined) = secant_polish(f, *root, SECANT_MAX_ITERATIONS, delta){
             let correction = root_refined - *root;
 
-            if ((correction/root_refined).abs() < 1.) & (root_refined >= a) & (root_refined <= b) {
+            if ((correction/root_refined).abs() < 1.) && (root_refined >= a) && (root_refined <= b) {
                 polished_roots.push(root_refined);
             }
         };
