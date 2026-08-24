@@ -96,15 +96,6 @@ pub fn chebyshev_subdivide<F: Fn(f64) -> f64>(f: &F, intervals: Vec<(f64, f64)>,
     Ok((intervals_out, coefficients))
 }
 
-fn chebyshev_coefficients<F: Fn(f64) -> f64>(f: &F, a: f64, b: f64, N: usize) -> DVector<f64> {
-    //Given a function f and an interval [a, b], returns a vector of the Chebyshev interpolation
-    //coefficients on that interval of order N.
-    let xk = lobatto_grid(a, b, N);
-    let I_jk = interpolation_matrix(N);
-    let f_xk = DVector::<f64>::from_fn(N + 1, |i, _| f(xk[i]));
-    I_jk*f_xk
-}
-
 fn chebyshev_coefficients_fast<F: Fn(f64) -> f64>(f: &F, a: f64, b: f64, N: usize, previous: DVector<f64>) -> (DVector<f64>, DVector<f64>) {
     //Given a function f and an interval [a, b], returns a vector of the Chebyshev interpolation
     //coefficients on that interval of order N.

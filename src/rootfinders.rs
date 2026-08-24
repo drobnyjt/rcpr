@@ -26,7 +26,7 @@ const fn default_usize_2() -> usize {
     2
 }
 
-const fn default_usize_128() -> usize {
+const fn default_usize_512() -> usize {
     512
 }
 
@@ -50,7 +50,7 @@ pub struct Config {
     pub delta: f64,
     #[serde(default = "default_usize_2")]
     pub N0: usize,
-    #[serde(default = "default_usize_128")]
+    #[serde(default = "default_usize_512")]
     pub N_max: usize,
     #[serde(default = "default_float_1_10000")]
     pub complex_threshold: f64,
@@ -66,10 +66,10 @@ impl Default for Config {
             epsilon: default_epsilon(),
             delta: default_delta(),
             N0: default_usize_2(),
-            N_max: default_usize_128(),
+            N_max: default_usize_512(),
             complex_threshold: default_float_1_10000(),
             far_from_zero: default_float_max(),
-            interval_limit: default_float_zero(),
+            interval_limit: default_float_1_e_minus_12(),
         }
     }
 }
