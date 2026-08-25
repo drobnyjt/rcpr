@@ -67,11 +67,3 @@ pub fn secant_polish<F, E>(f: &F, x0: f64, iter_max: usize, delta: f64) -> Resul
     }
     Err(anyhow!("Secant failed to converge after {} iterations.", iter_max))
 }
-
-pub fn newton_iteration<F, D, E>(f: &F, df: &D, x0: f64) -> f64 where F: Fn(f64) -> Result<f64, E>, D: Fn(f64) -> Result<f64, E>, E: std::error::Error + Send + Sync + 'static, {
-    x0 - f(x0).unwrap()/df(x0).unwrap()
-}
-
-pub fn newton_correction<F, D, E>(f: &F, df: &D, x0: f64) -> f64 where F: Fn(f64) -> Result<f64, E>, D: Fn(f64) -> Result<f64, E>, E: std::error::Error + Send + Sync + 'static, {
-    f(x0).unwrap()/df(x0).unwrap()
-}

@@ -47,7 +47,7 @@ pub fn lobatto_grid_py<'py>(_python: Python<'py>, a: f64, b: f64, N: usize) -> P
 pub fn chebyshev_coefficients_py<'py>(_python: Python<'py>, f: &Bound<'py, PyAny>, a: f64, b: f64, epsilon: f64, n0: usize, n_max: usize) -> PyResult<(Vec<f64>, f64)> {
     
     let f = |x| f.clone().call1((x,))?.extract();
-    let (result, error, _) = chebyshev_adaptive(&f, a, b, n0, epsilon, n_max);
+    let (result, error, _) = chebyshev_adaptive(&f, a, b, n0, epsilon, n_max).map_err(|e| PyRuntimeError::new_err(format!("Secant polishing failed: {}", e)))?;
     Ok((result.iter().map(|x| *x).collect::<Vec<f64>>(), error))
 }
 

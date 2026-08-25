@@ -3,7 +3,7 @@ use cached::*;
 
 pub fn chebyshev_adaptive<F, E>(
     f: &F, a: f64, b: f64, N0: usize, epsilon: f64, N_max: usize
-    ) -> (DVector<f64>, f64, DVector<f64>) 
+    ) -> Result<(DVector<f64>, f64, DVector<f64>)> 
     where
         F: Fn(f64) -> Result<f64, E>,
         E: std::error::Error + Send + Sync + 'static, 
@@ -11,20 +11,20 @@ pub fn chebyshev_adaptive<F, E>(
     //Adaptive Chebyshev approximation of the function f on the interval [a, b], which starts from degree N0 and doubles
     //the degree each iteration until the error is less than epsilon, starting with order N0 returning the Chebyshev coefficients a if
     //convergence is reached before the degree exceeds N_max.
-    let (mut a_0, mut f_0) = chebyshev_coefficients_fast(f, a, b, N0, DVector::<f64>::from(vec![]));
+    let (mut a_0, mut f_0) = chebyshev_coefficients_fast(f, a, b, N0, DVector::<f64>::from(vec![]))?;
     let mut N0 = N0;
 
     loop {
 
         let N1 = 2*N0;
-        let (a_1, f_1) = chebyshev_coefficients_fast(f, a, b, N1, f_0);
+        let (a_1, f_1) = chebyshev_coefficients_fast(f, a, b, N1, f_0)?;
 
         //Error is defined as sum(delta) where delta_2N = fN(x) - f2N(x)
         //Since the N0..2N0 terms of fN are zero, this sum can be split into two pieces
         let error = a_0.iter().enumerate().map(|(i, a)| (a - a_1[i]).abs()).sum::<f64>() + a_1.iter().enumerate().filter(|(i, _)| i >= &(N0 + 1)).map(|(_, a)| a.abs()).sum::<f64>();
 
         if (error < epsilon) || (2*N1 >= N_max) {
-            return (a_1, error, f_1)
+            return Ok((a_1, error, f_1))
         }
 
         a_0 = a_1;
@@ -84,7 +84,7 @@ pub fn chebyshev_subdivide<F, E>(
         let a = interval.0;
         let b = interval.1;
 
-        let (a_0, error, f_0) = chebyshev_adaptive(f, a, b, N0, epsilon, N_max);
+        let (a_0, error, f_0) = chebyshev_adaptive(f, a, b, N0, epsilon, N_max)?;
         
         if error < epsilon {
             intervals_out.push(interval);
@@ -112,7 +112,7 @@ pub fn chebyshev_subdivide<F, E>(
     Ok((intervals_out, coefficients, evaluations))
 }
 
-fn chebyshev_coefficients_fast<F, E>(f: &F, a: f64, b: f64, N: usize, previous: DVector<f64>) -> (DVector<f64>, DVector<f64>)
+fn chebyshev_coefficients_fast<F, E>(f: &F, a: f64, b: f64, N: usize, previous: DVector<f64>) -> Result<(DVector<f64>, DVector<f64>)>
 where F: Fn(f64) -> Result<f64, E>, E: std::error::Error + Send + Sync + 'static, {
     //Given a function f and an interval [a, b], returns a vector of the Chebyshev interpolation
     //coefficients on that interval of order N.
@@ -120,20 +120,23 @@ where F: Fn(f64) -> Result<f64, E>, E: std::error::Error + Send + Sync + 'static
     let I_jk = interpolation_matrix(N);
 
     if previous.is_empty() {
-        let f_xk = DVector::<f64>::from_fn(N + 1, |i, _| f(xk[i]).unwrap());
-        return (I_jk*f_xk.clone(), f_xk)
+
+        let f_xk = DVector::<f64>::from(xk.iter().map(|&x| f(x)).collect::<Result<Vec<f64>, E>>()?);
+
+        return Ok((I_jk*f_xk.clone(), f_xk))
     }
 
-    let f_xk = DVector::<f64>::from(xk.iter()
+    let f_xk = DVector::<f64>::from(
+        xk.into_iter()
         .enumerate()
-        .map(|(i, &x_i)| if i%2==0 {
-            previous[i/2]
+        .map(|(i, x_i)| if i%2==0 {
+            Ok(previous[i/2])
         } else {
-            f(x_i).unwrap()
+            f(x_i)
         }
-    ).collect::<Vec<f64>>());
+    ).collect::<Result<Vec<f64>, E>>()?);
     
-    (I_jk*f_xk.clone(), f_xk)
+    Ok((I_jk*f_xk.clone(), f_xk))
 }
 
 
