@@ -1,6 +1,7 @@
 use super::*;
 
-pub fn newton_polish<F: Fn(f64) -> f64, D: Fn(f64) -> f64>(f: &F, df: &D, x0: f64, iter_max: usize, delta: f64) -> Result<f64, anyhow::Error> {
+pub fn newton_polish<F, D, E>(f: &F, df: &D, x0: f64, iter_max: usize, delta: f64) -> Result<f64, anyhow::Error>
+where F: Fn(f64) -> Result<f64, E>, D: Fn(f64) -> Result<f64, E>, E: std::error::Error + Send + Sync + 'static, {
 
     if x0.is_nan() {
         return Err(anyhow!("Newton iteration guess is NaN. Check preceding calculation."))
@@ -9,8 +10,8 @@ pub fn newton_polish<F: Fn(f64) -> f64, D: Fn(f64) -> f64>(f: &F, df: &D, x0: f6
     let mut x = x0;
 
     for _ in 1..=iter_max {
-        let df_x = df(x);
-        let xn = x - f(x)/df_x;
+        let df_x = df(x)?;
+        let xn = x - f(x)?/df_x;
         if xn.is_nan() || (df_x.abs() < f64::EPSILON) {
             return Err(anyhow!("NaN in Newton iteration."))
         }
@@ -28,7 +29,7 @@ fn hyberr(x: f64, y: f64) -> f64 {
     (x - y).abs()/(1. + y.abs())
 }
 
-pub fn secant_polish<F: Fn(f64) -> f64>(f: &F, x0: f64, iter_max: usize, delta: f64) -> Result<f64, anyhow::Error> {
+pub fn secant_polish<F, E>(f: &F, x0: f64, iter_max: usize, delta: f64) -> Result<f64, anyhow::Error> where F: Fn(f64) -> Result<f64, E>, E: std::error::Error + Send + Sync + 'static, {
 
     if x0.is_nan() {
         return Err(anyhow!("Secant iteration guess is NaN. Check preceding calculation."))
@@ -44,8 +45,8 @@ pub fn secant_polish<F: Fn(f64) -> f64>(f: &F, x0: f64, iter_max: usize, delta: 
     
     for _ in 1..=iter_max {
 
-        let f2 = f(x2);
-        let f1 = f(x1);
+        let f2 = f(x2)?;
+        let f1 = f(x1)?;
         let df = f2 - f1;
 
         if df.abs() < f64::EPSILON {
@@ -65,12 +66,4 @@ pub fn secant_polish<F: Fn(f64) -> f64>(f: &F, x0: f64, iter_max: usize, delta: 
         x2 = x3;
     }
     Err(anyhow!("Secant failed to converge after {} iterations.", iter_max))
-}
-
-pub fn newton_iteration<F: Fn(f64) -> f64, D: Fn(f64) -> f64>(f: &F, df: &D, x0: f64) -> f64 {
-    x0 - f(x0)/df(x0)
-}
-
-pub fn newton_correction<F: Fn(f64) -> f64, D: Fn(f64) -> f64>(f: &F, df: &D, x0: f64) -> f64 {
-    f(x0)/df(x0)
 }

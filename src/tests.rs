@@ -1,27 +1,27 @@
 pub use crate::rootfinders::*;
 pub use crate::polish::*;
 
-fn g(x: f64) -> f64 {
-    f(x)/(10. + x.powf(6.))
+fn g(x: f64) -> Result<f64, std::convert::Infallible> {
+    Ok(f(x).unwrap()/(10. + x.powf(6.)))
 }
 
 //This is an adversarial function; it has 7 roots, 1 of which is on an end of the interval
 //and two which are both very near zero and very near each other.
-fn f(x: f64) -> f64 {
-    (x - 2.)*(x + 3.)*(x - 8.)*(x + 1E-4)*(x - 1E-5)*(x + 1.)*(x + 10.0)
+fn f(x: f64) -> Result<f64, std::convert::Infallible> {
+    Ok((x - 2.)*(x + 3.)*(x - 8.)*(x + 1E-4)*(x - 1E-5)*(x + 1.)*(x + 10.0))
 }
 
-fn df(x: f64) -> f64 {
+fn df(x: f64) -> Result<f64, std::convert::Infallible> {
     // From Wolfram Alpha
-    7.*(0.00617137 + 137.153*x + 166.279*x.powi(2) - 100.576*x.powi(3) - 57.8569*x.powi(4) + 3.42865*x.powi(5) + x.powi(6))
+    Ok(7.*(0.00617137 + 137.153*x + 166.279*x.powi(2) - 100.576*x.powi(3) - 57.8569*x.powi(4) + 3.42865*x.powi(5) + x.powi(6)))
 }
 
-fn h(x: f64) -> f64 {
-    (x - 0.5)*(x - 1.0)*(x + 1.0)*(x +  0.5)
+fn h(x: f64) -> Result<f64, std::convert::Infallible> {
+    Ok((x - 0.5)*(x - 1.0)*(x + 1.0)*(x +  0.5))
 }
 
-fn q(x: f64) -> f64 {
-    (x.powf(x) - x.powi(2))*(x - 3.).powi(3)
+fn q(x: f64) -> Result<f64, std::convert::Infallible> {
+    Ok((x.powf(x) - x.powi(2))*(x - 3.).powi(3))
 }
 
 #[test]
@@ -96,8 +96,8 @@ fn test_rootfinding_with_secant() {
 #[test]
 fn test_polynom() {
 
-    let q = |x: f64| x.powi(4) + 4.2*x.powi(3) - 1.8*x.powi(2) - 13.*x + 9.6;
-    let dq = |x: f64| 4.*x.powi(3) + 3.*4.2*x.powi(2) - 2.*1.8*x - 13.;
+    let q = |x: f64| -> Result<f64, std::convert::Infallible> { Ok(x.powi(4) + 4.2*x.powi(3) - 1.8*x.powi(2) - 13.*x + 9.6)};
+    let dq = |x: f64| -> Result<f64, std::convert::Infallible> { Ok(4.*x.powi(3) + 3.*4.2*x.powi(2) - 2.*1.8*x - 13.)};
 
     let c_j: Vec<f64> = vec![1., 5.2, 3.4, -9.6];
 

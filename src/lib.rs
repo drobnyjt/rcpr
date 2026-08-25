@@ -6,12 +6,29 @@ use nalgebra::{DMatrix, DVector};
 use nalgebra::linalg::balancing::balance_parlett_reinsch;
 use std::f64::consts::PI;
 use anyhow::{Result, anyhow, ensure};
+//use std::fmt;
 
 pub mod chebyshev;
 pub mod rootfinders;
 pub mod polish;
 #[cfg(feature="python")]
 pub mod python;
+
+/*
+type ChebResult<T> = std::result::Result<T, ChebError>;
+
+#[derive(Debug, Clone)]
+enum ChebError {
+    Numeric(String),
+    Input(String),
+}
+
+impl fmt::Display for ChebError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Chebyshev error.")
+    }
+}
+*/
 
 pub fn monomial_frobenius_matrix(c_j: DVector<f64>) -> DMatrix<f64> {
     let N: usize = c_j.len() - 1;
