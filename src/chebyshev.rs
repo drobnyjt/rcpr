@@ -136,8 +136,7 @@ pub fn truncate_chebyshev_coefficients(a_j: DVector<f64>) -> Result<DVector<f64>
     for (index, &a) in a_j.iter().rev().enumerate() {
         if a.abs() > truncation_error {
 
-            // Retain at least 1 coefficient
-            let stop: usize = (a_j.len() - index - 1).max(1);
+            let stop: usize = a_j.len() - index - 1;
 
             return Ok(DVector::from(
                 a_j.iter()
@@ -152,15 +151,23 @@ pub fn truncate_chebyshev_coefficients(a_j: DVector<f64>) -> Result<DVector<f64>
 }
 
 pub fn chebyshev_frobenius_matrix(a_j: DVector<f64>) -> Result<DMatrix<f64>> {
+
     let N: usize = a_j.len() - 1;
+
+    // For trivial coeffs, need to not divide only element by 2
+    if N == 1 {
+        let element = -a_j[0]/a_j[1];
+        if element.is_finite() {
+            return Ok(DMatrix::from_vec(1, 1, vec![-a_j[0]/a_j[1]]))
+        } else {
+            return Err(anyhow!("Invalid division detected in companion matrix."))
+        }
+        
+    }
+
     let mut A_jk: DMatrix<f64> = DMatrix::zeros(N, N);
 
     let inv_2_aj_N = 1./2./a_j[N];
-
-    if inv_2_aj_N.is_nan() || inv_2_aj_N.is_infinite() {
-        return Err(anyhow!("Invalid division detected in companion matrix."))
-    }
-
     for k in 0..N {
         A_jk[(0, k)] = delta(1, k as i32);
         A_jk[(N - 1, k)] = (-1.)*(a_j[k]*inv_2_aj_N) + (1./2.)*delta(k as i32, N as i32 - 2);
@@ -171,7 +178,11 @@ pub fn chebyshev_frobenius_matrix(a_j: DVector<f64>) -> Result<DMatrix<f64>> {
         A_jk[(j, j + 1)] = 0.5;
     }
 
-    Ok(A_jk)
+    if A_jk.iter().any(|x| !x.is_finite()) {
+        return Err(anyhow!("Infinite or NaN element detected in companion matrix."))
+    } else {
+        Ok(A_jk)
+    }    
 }
 
 fn p(j: usize, N: usize) -> f64 {

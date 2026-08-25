@@ -8,7 +8,7 @@ use nalgebra::Schur;
 const DEFAULT_EPSILON: f64 = 1e-12;
 const DEFAULT_DELTA: f64 = 1e-13;
 const SCHUR_DECOMPOSITION_EPSILON: f64 = 1e-16;
-const SCHUR_DECOMPOSITION_MAX_ITERATIONS: usize = 128;
+const SCHUR_DECOMPOSITION_MAX_ITERATIONS: usize = 512*512;
 
 const fn default_epsilon() -> f64 {
     DEFAULT_EPSILON
@@ -43,6 +43,7 @@ const fn default_float_1_e_minus_12() -> f64 {
 }
 
 #[derive(Clone, Copy, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct Config {
     #[serde(default = "default_epsilon")]
     pub epsilon: f64,
@@ -122,8 +123,8 @@ pub fn find_roots<F: Fn(f64) -> f64>(f: &F, intervals: Vec<(f64, f64)>, config: 
 
         //Test if all chebyshev interpolants in this interval are far from zero
         //If yes, skip this interval
-        let min = fxk.max();
-        let max = fxk.min();
+        let min = fxk.min();
+        let max = fxk.max();
         if min > far_from_zero || max < -far_from_zero {
             continue
         }
@@ -131,9 +132,15 @@ pub fn find_roots<F: Fn(f64) -> f64>(f: &F, intervals: Vec<(f64, f64)>, config: 
         //Truncate trailing chebyshev coefficients if below threshold
         let a_j = truncate_chebyshev_coefficients(c)?;
 
-        //If len(a_j) is 1, then its eigenvalue is simply itself, and the interval can be skipped.
-        if a_j.len() == 1 {
-            // roots.push(a_j[0]*(i.1 - i.0)/2. + (i.1 + i.0)/2.);
+        // If len(a_j) is 1, the function is a constant and the interval can be skipped.
+        let N = a_j.len();
+        if N == 1 {
+            continue
+        }
+
+        // I'm deciding here to skip the interval if all chebyshev coefficients are zero
+        // This may return an error later
+        if a_j.iter().all(|&x| x==0.0) {
             continue
         }
 
@@ -154,8 +161,9 @@ pub fn find_roots<F: Fn(f64) -> f64>(f: &F, intervals: Vec<(f64, f64)>, config: 
         ) {
             let eigenvalues = schur_matrix.complex_eigenvalues();
             for eigenvalue in eigenvalues.iter() {
+                // N*machine epsilon is a guess of the error in [-1, 1] coords
                 if (eigenvalue.im.abs() <= complex_threshold) && (eigenvalue.re.abs() < 1.0 + config.epsilon) {
-                    if (index < intervals.len() - 1) && (1.0 - eigenvalue.re) <= f64::EPSILON {
+                    if (index < intervals.len() - 1) && (1.0 - eigenvalue.re) <= config.epsilon {
                         // if not right-most interval, attempt to drop eigenvalues on right boundary
                         continue
                     }
