@@ -1,7 +1,13 @@
 use super::*;
 use cached::*;
 
-pub fn chebyshev_adaptive<F: Fn(f64) -> f64>(f: &F, a: f64, b: f64, N0: usize, epsilon: f64, N_max: usize) -> (DVector<f64>, f64, DVector<f64>) {
+pub fn chebyshev_adaptive<F, E>(
+    f: &F, a: f64, b: f64, N0: usize, epsilon: f64, N_max: usize
+    ) -> (DVector<f64>, f64, DVector<f64>) 
+    where
+        F: Fn(f64) -> Result<f64, E>,
+        E: std::error::Error + Send + Sync + 'static, 
+    {
     //Adaptive Chebyshev approximation of the function f on the interval [a, b], which starts from degree N0 and doubles
     //the degree each iteration until the error is less than epsilon, starting with order N0 returning the Chebyshev coefficients a if
     //convergence is reached before the degree exceeds N_max.
@@ -47,7 +53,13 @@ pub fn chebyshev_approximate(a_j: DVector<f64>, a: f64, b: f64, x: f64) -> f64 {
     (b0 - b3 + a_j[0]) / 2.0
 }
 
-pub fn chebyshev_subdivide<F: Fn(f64) -> f64>(f: &F, intervals: Vec<(f64, f64)>, N0: usize, epsilon: f64, N_max: usize, interval_limit: f64) -> Result<(Vec<(f64, f64)>, Vec<DVector<f64>>, Vec<DVector<f64>>), anyhow::Error> {
+pub fn chebyshev_subdivide<F, E>(
+    f: &F, intervals: Vec<(f64, f64)>, N0: usize, epsilon: f64, N_max: usize, interval_limit: f64
+    ) -> Result<(Vec<(f64, f64)>, Vec<DVector<f64>>, Vec<DVector<f64>>), anyhow::Error> 
+    where 
+        F: Fn(f64) -> Result<f64, E>,
+        E: std::error::Error + Send + Sync + 'static,
+    {
     //Adaptive Chebyshev Series interpolation with automatic subdivision.
     //
     //This function automatically divides the domain by halves into subintervals
@@ -66,14 +78,14 @@ pub fn chebyshev_subdivide<F: Fn(f64) -> f64>(f: &F, intervals: Vec<(f64, f64)>,
 
         if (interval.1 - interval.0) < interval_limit {
             return Err(anyhow!("Reached minimum interval limit. [a, b] = [{}, {}], f(a) = {}, f(b) = {}",
-                interval.0, interval.1, f(interval.0), f(interval.1)));
+                interval.0, interval.1, f(interval.0).unwrap(), f(interval.1).unwrap()));
         }
 
         let a = interval.0;
         let b = interval.1;
 
         let (a_0, error, f_0) = chebyshev_adaptive(f, a, b, N0, epsilon, N_max);
-
+        
         if error < epsilon {
             intervals_out.push(interval);
             coefficients.push(a_0);
@@ -100,14 +112,15 @@ pub fn chebyshev_subdivide<F: Fn(f64) -> f64>(f: &F, intervals: Vec<(f64, f64)>,
     Ok((intervals_out, coefficients, evaluations))
 }
 
-fn chebyshev_coefficients_fast<F: Fn(f64) -> f64>(f: &F, a: f64, b: f64, N: usize, previous: DVector<f64>) -> (DVector<f64>, DVector<f64>) {
+fn chebyshev_coefficients_fast<F, E>(f: &F, a: f64, b: f64, N: usize, previous: DVector<f64>) -> (DVector<f64>, DVector<f64>)
+where F: Fn(f64) -> Result<f64, E>, E: std::error::Error + Send + Sync + 'static, {
     //Given a function f and an interval [a, b], returns a vector of the Chebyshev interpolation
     //coefficients on that interval of order N.
     let xk = lobatto_grid(a, b, N);
     let I_jk = interpolation_matrix(N);
 
     if previous.is_empty() {
-        let f_xk = DVector::<f64>::from_fn(N + 1, |i, _| f(xk[i]));
+        let f_xk = DVector::<f64>::from_fn(N + 1, |i, _| f(xk[i]).unwrap());
         return (I_jk*f_xk.clone(), f_xk)
     }
 
@@ -116,7 +129,7 @@ fn chebyshev_coefficients_fast<F: Fn(f64) -> f64>(f: &F, a: f64, b: f64, N: usiz
         .map(|(i, &x_i)| if i%2==0 {
             previous[i/2]
         } else {
-            f(x_i)
+            f(x_i).unwrap()
         }
     ).collect::<Vec<f64>>());
     

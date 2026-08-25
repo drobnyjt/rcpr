@@ -97,7 +97,7 @@ impl Config {
     }
 }
 
-pub fn find_roots<F: Fn(f64) -> f64>(f: &F, intervals: Vec<(f64, f64)>, config: Config) -> Result<Vec<f64>, anyhow::Error> {
+pub fn find_roots<F, E>(f: &F, intervals: Vec<(f64, f64)>, config: Config) -> Result<Vec<f64>, anyhow::Error> where F: Fn(f64) -> Result<f64, E>, E: std::error::Error + Send + Sync + 'static,  {
 
     let Config { epsilon, N0, N_max, complex_threshold, far_from_zero, interval_limit, .. } = config;
 
@@ -163,8 +163,9 @@ pub fn find_roots<F: Fn(f64) -> f64>(f: &F, intervals: Vec<(f64, f64)>, config: 
             for eigenvalue in eigenvalues.iter() {
                 // N*machine epsilon is a guess of the error in [-1, 1] coords
                 if (eigenvalue.im.abs() <= complex_threshold) && (eigenvalue.re.abs() < 1.0 + config.epsilon) {
-                    if (index < intervals.len() - 1) && (1.0 - eigenvalue.re) <= config.epsilon {
+                    if (index < intervals.len() - 1) && (1.0 - eigenvalue.re) <= f64::EPSILON {
                         // if not right-most interval, attempt to drop eigenvalues on right boundary
+                        // this check needs to be more strict than above or it discards real roots
                         continue
                     }
                     roots.push(eigenvalue.re*(i.1 - i.0)/2. + (i.1 + i.0)/2.)
@@ -180,7 +181,8 @@ pub fn find_roots<F: Fn(f64) -> f64>(f: &F, intervals: Vec<(f64, f64)>, config: 
     Ok(roots)
 }
 
-pub fn find_roots_piecewise_with_newton_polishing<F: Fn(f64) -> f64, G: Fn(f64) -> f64, D: Fn(f64) -> f64>(g: &G, f: &F, df: &D, intervals: Vec<(f64, f64)>, config: Config) -> Result<Vec<f64>, anyhow::Error> {
+pub fn find_roots_piecewise_with_newton_polishing<F, G, D, E>(g: &G, f: &F, df: &D, intervals: Vec<(f64, f64)>, config: Config) -> Result<Vec<f64>, anyhow::Error>
+    where F: Fn(f64) -> Result<f64, E>, G: Fn(f64) -> Result<f64, E>, D: Fn(f64) -> Result<f64, E>, E: std::error::Error + Send + Sync + 'static,    {
 
     let Config {delta, ..} = config;
 
@@ -206,7 +208,7 @@ pub fn find_roots_piecewise_with_newton_polishing<F: Fn(f64) -> f64, G: Fn(f64) 
 
 }
 
-pub fn find_roots_with_secant_polishing<F: Fn(f64) -> f64, G: Fn(f64) -> f64>(g: &G, f: &F, a: f64, b: f64, config: Config) -> Result<Vec<f64>, anyhow::Error> {
+pub fn find_roots_with_secant_polishing<F, G, E>(g: &G, f: &F, a: f64, b: f64, config: Config) -> Result<Vec<f64>, anyhow::Error> where F: Fn(f64) -> Result<f64, E>, G: Fn(f64) -> Result<f64, E>, E: std::error::Error + Send + Sync + 'static, {
 
     let Config {delta, ..} = config;
 
@@ -226,7 +228,8 @@ pub fn find_roots_with_secant_polishing<F: Fn(f64) -> f64, G: Fn(f64) -> f64>(g:
     Ok(polished_roots)
 }
 
-pub fn find_roots_with_newton_polishing<F: Fn(f64) -> f64, G: Fn(f64) -> f64, D: Fn(f64) -> f64>(g: &G, f: &F, df: &D, a: f64, b: f64, config: Config) -> Result<Vec<f64>, anyhow::Error> {
+pub fn find_roots_with_newton_polishing<F, G, D, E>(g: &G, f: &F, df: &D, a: f64, b: f64, config: Config) -> Result<Vec<f64>, anyhow::Error>
+    where F: Fn(f64) -> Result<f64, E>, G: Fn(f64) -> Result<f64, E>, D: Fn(f64) -> Result<f64, E>, E: std::error::Error + Send + Sync + 'static, {
 
     let Config {delta, ..} = config;
 
@@ -247,7 +250,8 @@ pub fn find_roots_with_newton_polishing<F: Fn(f64) -> f64, G: Fn(f64) -> f64, D:
     Ok(polished_roots)
 }
 
-pub fn find_roots_piecewise_with_secant_polishing<F: Fn(f64) -> f64, G: Fn(f64) -> f64>(g: &G, f: &F, intervals: Vec<(f64, f64)>, config: Config) -> Result<Vec<f64>, anyhow::Error> {
+pub fn find_roots_piecewise_with_secant_polishing<F, G, E>(g: &G, f: &F, intervals: Vec<(f64, f64)>, config: Config) -> Result<Vec<f64>, anyhow::Error>
+    where F: Fn(f64) -> Result<f64, E>, G: Fn(f64) -> Result<f64, E>, E: std::error::Error + Send + Sync + 'static, {
 
     let Config {delta, ..} = config;
 

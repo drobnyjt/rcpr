@@ -46,7 +46,7 @@ pub fn lobatto_grid_py<'py>(_python: Python<'py>, a: f64, b: f64, N: usize) -> P
 #[pyo3(signature = (f, a, b, epsilon=1e-6, n0=2, n_max=1000))]
 pub fn chebyshev_coefficients_py<'py>(_python: Python<'py>, f: &Bound<'py, PyAny>, a: f64, b: f64, epsilon: f64, n0: usize, n_max: usize) -> PyResult<(Vec<f64>, f64)> {
     
-    let f = {|x| f.clone().call1((x,)).unwrap().extract().unwrap()};
+    let f = |x| f.clone().call1((x,))?.extract();
     let (result, error, _) = chebyshev_adaptive(&f, a, b, n0, epsilon, n_max);
     Ok((result.iter().map(|x| *x).collect::<Vec<f64>>(), error))
 }
@@ -60,7 +60,7 @@ pub fn chebyshev_approximate_py(a_j: Vec<f64>, a: f64, b: f64, x: f64) -> PyResu
 #[cfg(feature = "python")]
 #[pyfunction]
 pub fn chebyshev_subdivide_py<'py>(_python: Python<'py>, f: &Bound<'py, PyAny>, a: f64, b: f64, epsilon: f64, n0: usize, n_max: usize, interval_limit: f64) -> PyResult<(Vec<(f64, f64)>, Vec<Vec<f64>>)> {
-    let f = {|x| f.clone().call1((x,)).unwrap().extract().unwrap()};
+    let f = |x| f.clone().call1((x,))?.extract();
     let (intervals, coefficients, _) = chebyshev_subdivide(&f, vec![(a, b)], n0, epsilon, n_max, interval_limit).map_err(|e| PyRuntimeError::new_err(format!("Chebyshev subdivide failed: {}", e)))?;
     return Ok((intervals, coefficients.iter().map(|v| v.iter().map(|x| *x).collect::<Vec<f64>>()).collect()))
 }
@@ -73,13 +73,13 @@ pub fn find_roots_py<'py>(_python: Python<'py>, f: &Bound<'py, PyAny>, a: f64, b
         Some(x) => depythonize(x)?,
         None => Config::default()
     };
-    let f = {|x| f.clone().call1((x,)).unwrap().extract().unwrap()};
+    let f = |x| f.clone().call1((x,))?.extract();
     find_roots(&f, vec![(a, b)], config).map_err(|e| PyRuntimeError::new_err(format!("Chebyshev rootfinding failed: {}", e)))
 }
 
 #[cfg(feature = "python")]
 #[pyfunction]
 pub fn secant_polish_py<'py>(_python: Python<'py>, f: &Bound<'py, PyAny>, x0: f64, epsilon: f64, iter_max: usize) -> PyResult<f64> {
-    let f = {|x| f.clone().call1((x,)).unwrap().extract().unwrap()};
+    let f = |x| f.clone().call1((x,))?.extract();
     secant_polish(&f, x0, iter_max, epsilon).map_err(|e| PyRuntimeError::new_err(format!("Secant polishing failed: {}", e)))
 }
