@@ -1,6 +1,7 @@
 use super::*;
 use cached::*;
 use serde::Deserialize;
+use thiserror::Error;
 
 #[derive(Debug, Copy, Clone, Deserialize)]
 pub enum ErrorCalc {
@@ -8,9 +9,17 @@ pub enum ErrorCalc {
     Relative
 }
 
+#[derive(Error, Debug)]
+pub enum ChebError {
+    #[error("Input error")]
+    Input(String),
+    #[error("Generic")]
+    Generic(String)
+}
+
 pub fn chebyshev_adaptive<F, E>(
     f: &F, a: f64, b: f64, N0: usize, epsilon: f64, N_max: usize, error_calc: ErrorCalc
-    ) -> Result<(DVector<f64>, f64, DVector<f64>)> 
+    ) -> Result<(DVector<f64>, f64, DVector<f64>), ChebError>
     where
         F: Fn(f64) -> Result<f64, E>,
         E: std::error::Error + Send + Sync + 'static, 
@@ -18,20 +27,20 @@ pub fn chebyshev_adaptive<F, E>(
     //Adaptive Chebyshev approximation of the function f on the interval [a, b], which starts from degree N0 and doubles
     //the degree each iteration until the error is less than epsilon, starting with order N0 returning the Chebyshev coefficients a if
     //convergence is reached before the degree exceeds N_max.
-    let (mut a_0, mut f_0) = chebyshev_coefficients_fast(f, a, b, N0, DVector::<f64>::from(vec![]))?;
+    let (mut a_0, mut f_0) = chebyshev_coefficients_fast(f, a, b, N0, DVector::<f64>::from(vec![])).map_err(|e| ChebError::Generic(format!("{}", e)))?;
     let mut N0 = N0;
 
     loop {
 
         let N1 = 2*N0;
-        let (a_1, f_1) = chebyshev_coefficients_fast(f, a, b, N1, f_0)?;
+        let (a_1, f_1) = chebyshev_coefficients_fast(f, a, b, N1, f_0).map_err(|e| ChebError::Generic(format!("{}", e)))?;
 
         //Error is defined as sum(delta) where delta_2N = fN(x) - f2N(x)
         //Since the N0..2N0 terms of fN are zero, this sum can be split into two pieces
         let absolute_error = a_0.iter().enumerate().map(|(i, a)| (a - a_1[i]).abs()).sum::<f64>() + a_1.iter().enumerate().filter(|(i, _)| i >= &(N0 + 1)).map(|(_, a)| a.abs()).sum::<f64>();
         let error = match error_calc {
             ErrorCalc::Absolute => absolute_error,
-            ErrorCalc::Relative => absolute_error/f_1.iter().map(|&x| x.abs()).max_by(f64::total_cmp).ok_or(anyhow!("Cannot calculate max f(x)"))?
+            ErrorCalc::Relative => absolute_error/f_1.iter().map(|&x| x.abs()).max_by(f64::total_cmp).ok_or(ChebError::Generic(format!("Cannot calculate max f(x)")))?
         };
 
         if (error < epsilon) || (2*N1 > N_max) {
@@ -66,7 +75,7 @@ pub fn chebyshev_approximate(a_j: DVector<f64>, a: f64, b: f64, x: f64) -> f64 {
 
 pub fn chebyshev_subdivide<F, E>(
     f: &F, intervals: Vec<(f64, f64)>, N0: usize, epsilon: f64, N_max: usize, interval_limit: f64, error_calc: ErrorCalc
-    ) -> Result<(Vec<(f64, f64)>, Vec<DVector<f64>>, Vec<DVector<f64>>), anyhow::Error> 
+    ) -> Result<(Vec<(f64, f64)>, Vec<DVector<f64>>, Vec<DVector<f64>>), ChebError> 
     where 
         F: Fn(f64) -> Result<f64, E>,
         E: std::error::Error + Send + Sync + 'static,
@@ -88,8 +97,8 @@ pub fn chebyshev_subdivide<F, E>(
     for interval in intervals {
 
         if (interval.1 - interval.0) < interval_limit {
-            return Err(anyhow!("Reached minimum interval limit. [a, b] = [{}, {}], f(a) = {}, f(b) = {}",
-                interval.0, interval.1, f(interval.0).unwrap(), f(interval.1).unwrap()));
+            return Err(ChebError::Generic(format!("Reached minimum interval limit. [a, b] = [{}, {}], f(a) = {}, f(b) = {}",
+                interval.0, interval.1, f(interval.0).unwrap(), f(interval.1).unwrap())));
         }
 
         let a = interval.0;
@@ -106,7 +115,7 @@ pub fn chebyshev_subdivide<F, E>(
 
             let mid = a + (b - a)/2.;
             if !(a < mid && mid < b) {
-                return Err(anyhow!("Next interval width below machine precision. [a, b] = [{}, {}]", a, b))
+                return Err(ChebError::Generic(format!("Next interval width below machine precision. [a, b] = [{}, {}]", a, b)))
             }
 
             let result = chebyshev_subdivide(f, vec![(a, mid), (mid, b)], N0, epsilon, N_max, interval_limit, error_calc);
@@ -125,7 +134,7 @@ pub fn chebyshev_subdivide<F, E>(
     Ok((intervals_out, coefficients, evaluations))
 }
 
-fn chebyshev_coefficients_fast<F, E>(f: &F, a: f64, b: f64, N: usize, previous: DVector<f64>) -> Result<(DVector<f64>, DVector<f64>)>
+fn chebyshev_coefficients_fast<F, E>(f: &F, a: f64, b: f64, N: usize, previous: DVector<f64>) -> Result<(DVector<f64>, DVector<f64>), ChebError>
 where F: Fn(f64) -> Result<f64, E>, E: std::error::Error + Send + Sync + 'static, {
     //Given a function f and an interval [a, b], returns a vector of the Chebyshev interpolation
     //coefficients on that interval of order N.
@@ -134,7 +143,7 @@ where F: Fn(f64) -> Result<f64, E>, E: std::error::Error + Send + Sync + 'static
 
     if previous.is_empty() {
 
-        let f_xk = DVector::<f64>::from(xk.iter().map(|&x| f(x)).collect::<Result<Vec<f64>, E>>()?);
+        let f_xk = DVector::<f64>::from(xk.iter().map(|&x| f(x)).collect::<Result<Vec<f64>, E>>().map_err(|e| ChebError::Generic(format!("{}", e)))?);
 
         return Ok((I_jk*f_xk.clone(), f_xk))
     }
@@ -147,19 +156,19 @@ where F: Fn(f64) -> Result<f64, E>, E: std::error::Error + Send + Sync + 'static
         } else {
             f(x_i)
         }
-    ).collect::<Result<Vec<f64>, E>>()?);
+    ).collect::<Result<Vec<f64>, E>>().map_err(|e| ChebError::Generic(format!("{}", e)))?);
     
     Ok((I_jk*f_xk.clone(), f_xk))
 }
 
-pub fn truncate_chebyshev_coefficients(a_j: DVector<f64>) -> Result<DVector<f64>> {
+pub fn truncate_chebyshev_coefficients(a_j: DVector<f64>) -> Result<DVector<f64>, ChebError> {
 
     // Boyd, Solving Transcendental Equations, 3.4
     // This is an estimate for the truncation error - drop coefficients below this value.
     let truncation_error = (a_j.len() - 1) as f64 * f64::EPSILON * a_j.iter()
         .map(|x| x.abs())
         .max_by(f64::total_cmp)
-        .ok_or(anyhow!("Failed to calculate maximum coefficient."))?;
+        .ok_or(ChebError::Generic(format!("Failed to calculate maximum coefficient.")))?;
 
     for (index, &a) in a_j.iter().rev().enumerate() {
         if a.abs() > truncation_error {
@@ -178,7 +187,7 @@ pub fn truncate_chebyshev_coefficients(a_j: DVector<f64>) -> Result<DVector<f64>
     Ok(a_j)
 }
 
-pub fn chebyshev_frobenius_matrix(a_j: DVector<f64>) -> Result<DMatrix<f64>> {
+pub fn chebyshev_frobenius_matrix(a_j: DVector<f64>) -> Result<DMatrix<f64>, ChebError> {
 
     let N: usize = a_j.len() - 1;
 
@@ -188,7 +197,7 @@ pub fn chebyshev_frobenius_matrix(a_j: DVector<f64>) -> Result<DMatrix<f64>> {
         if element.is_finite() {
             return Ok(DMatrix::from_vec(1, 1, vec![-a_j[0]/a_j[1]]))
         } else {
-            return Err(anyhow!("Invalid division detected in companion matrix."))
+            return Err(ChebError::Generic(format!("Invalid division detected in companion matrix.")))
         }
     }
 
@@ -206,7 +215,7 @@ pub fn chebyshev_frobenius_matrix(a_j: DVector<f64>) -> Result<DMatrix<f64>> {
     }
 
     if A_jk.iter().any(|x| !x.is_finite()) {
-        return Err(anyhow!("Infinite or NaN element detected in companion matrix."))
+        return Err(ChebError::Generic(format!("Infinite or NaN element detected in companion matrix.")))
     } else {
         Ok(A_jk)
     }    

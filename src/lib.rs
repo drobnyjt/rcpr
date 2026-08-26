@@ -5,7 +5,6 @@ const SECANT_MAX_ITERATIONS: usize = 1000;
 use nalgebra::{DMatrix, DVector};
 use nalgebra::linalg::balancing::balance_parlett_reinsch;
 use std::f64::consts::PI;
-use anyhow::{Result, anyhow, ensure};
 
 pub mod chebyshev;
 pub mod rootfinders;

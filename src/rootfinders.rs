@@ -1,6 +1,6 @@
 pub use super::*;
 
-use crate::chebyshev::{chebyshev_subdivide, chebyshev_frobenius_matrix, truncate_chebyshev_coefficients, ErrorCalc};
+use crate::chebyshev::{chebyshev_subdivide, chebyshev_frobenius_matrix, truncate_chebyshev_coefficients, ErrorCalc, ChebError};
 use crate::polish::*;
 use serde::*;
 use nalgebra::Schur;
@@ -106,20 +106,20 @@ impl Config {
     }
 }
 
-pub fn find_roots<F, E>(f: &F, intervals: Vec<(f64, f64)>, config: Config) -> Result<Vec<f64>, anyhow::Error> where F: Fn(f64) -> Result<f64, E>, E: std::error::Error + Send + Sync + 'static,  {
+pub fn find_roots<F, E>(f: &F, intervals: Vec<(f64, f64)>, config: Config) -> Result<Vec<f64>, ChebError> where F: Fn(f64) -> Result<f64, E>, E: std::error::Error + Send + Sync + 'static,  {
 
     let Config { epsilon, N0, N_max, complex_threshold, far_from_zero, interval_limit, error_calc, .. } = config;
 
-    ensure!(N0 > 0, "N0 cannot be zero.");
-    ensure!(N_max >= N0, "N_max cannot be smaller than N0.");
-    ensure!(complex_threshold >= 0., "Complex threshold cannot be less than zero.");
-    ensure!(interval_limit >= 0., "Interval limit cannot be less than zero.");
-    ensure!(far_from_zero >= 0., "Far-from-zero threshold cannot be less than zero.");
+    if (N0 <= 0) || (N_max <= N0) || (complex_threshold < 0.) || (interval_limit <= 0.) || (far_from_zero <= 0.) {
+        return Err(ChebError::Generic(format!("")))
+    }
 
     let a = intervals[0].0;
     let b = intervals[intervals.len() - 1].1;
 
-    ensure!(b > a, "Invalid interval [{}, {}]", a, b);
+    if b <= a {
+        return Err(ChebError::Generic(format!("Invalid interval [a, b] = [{}, {}]", a, b)))
+    }
 
     let (intervals, coefficients, evaluations) = chebyshev_subdivide(f, intervals, N0, epsilon, N_max, interval_limit, error_calc)?;
     let mut roots: Vec<f64> = Vec::new();
@@ -190,7 +190,7 @@ pub fn find_roots<F, E>(f: &F, intervals: Vec<(f64, f64)>, config: Config) -> Re
     Ok(roots)
 }
 
-pub fn find_roots_piecewise_with_newton_polishing<F, G, D, E>(g: &G, f: &F, df: &D, intervals: Vec<(f64, f64)>, config: Config) -> Result<Vec<f64>, anyhow::Error>
+pub fn find_roots_piecewise_with_newton_polishing<F, G, D, E>(g: &G, f: &F, df: &D, intervals: Vec<(f64, f64)>, config: Config) -> Result<Vec<f64>, ChebError>
     where F: Fn(f64) -> Result<f64, E>, G: Fn(f64) -> Result<f64, E>, D: Fn(f64) -> Result<f64, E>, E: std::error::Error + Send + Sync + 'static,    {
 
     let Config {delta, ..} = config;
@@ -198,7 +198,9 @@ pub fn find_roots_piecewise_with_newton_polishing<F, G, D, E>(g: &G, f: &F, df: 
     let a = intervals[0].0;
     let b = intervals[intervals.len() - 1].1;
 
-    ensure!(b > a, "Invalid interval [{}, {}]", a, b);
+    if b <= a {
+        return Err(ChebError::Generic(format!("Invalid interval [a, b] = [{}, {}]", a, b)))
+    }
 
     let roots = find_roots(g, intervals, config)?;
     let mut polished_roots: Vec<f64> = Vec::new();
@@ -217,7 +219,7 @@ pub fn find_roots_piecewise_with_newton_polishing<F, G, D, E>(g: &G, f: &F, df: 
 
 }
 
-pub fn find_roots_with_secant_polishing<F, G, E>(g: &G, f: &F, a: f64, b: f64, config: Config) -> Result<Vec<f64>, anyhow::Error> where F: Fn(f64) -> Result<f64, E>, G: Fn(f64) -> Result<f64, E>, E: std::error::Error + Send + Sync + 'static, {
+pub fn find_roots_with_secant_polishing<F, G, E>(g: &G, f: &F, a: f64, b: f64, config: Config) -> Result<Vec<f64>, ChebError> where F: Fn(f64) -> Result<f64, E>, G: Fn(f64) -> Result<f64, E>, E: std::error::Error + Send + Sync + 'static, {
 
     let Config {delta, ..} = config;
 
@@ -237,7 +239,7 @@ pub fn find_roots_with_secant_polishing<F, G, E>(g: &G, f: &F, a: f64, b: f64, c
     Ok(polished_roots)
 }
 
-pub fn find_roots_with_newton_polishing<F, G, D, E>(g: &G, f: &F, df: &D, a: f64, b: f64, config: Config) -> Result<Vec<f64>, anyhow::Error>
+pub fn find_roots_with_newton_polishing<F, G, D, E>(g: &G, f: &F, df: &D, a: f64, b: f64, config: Config) -> Result<Vec<f64>, ChebError>
     where F: Fn(f64) -> Result<f64, E>, G: Fn(f64) -> Result<f64, E>, D: Fn(f64) -> Result<f64, E>, E: std::error::Error + Send + Sync + 'static, {
 
     let Config {delta, ..} = config;
@@ -259,7 +261,7 @@ pub fn find_roots_with_newton_polishing<F, G, D, E>(g: &G, f: &F, df: &D, a: f64
     Ok(polished_roots)
 }
 
-pub fn find_roots_piecewise_with_secant_polishing<F, G, E>(g: &G, f: &F, intervals: Vec<(f64, f64)>, config: Config) -> Result<Vec<f64>, anyhow::Error>
+pub fn find_roots_piecewise_with_secant_polishing<F, G, E>(g: &G, f: &F, intervals: Vec<(f64, f64)>, config: Config) -> Result<Vec<f64>, ChebError>
     where F: Fn(f64) -> Result<f64, E>, G: Fn(f64) -> Result<f64, E>, E: std::error::Error + Send + Sync + 'static, {
 
     let Config {delta, ..} = config;
@@ -282,7 +284,7 @@ pub fn find_roots_piecewise_with_secant_polishing<F, G, E>(g: &G, f: &F, interva
     Ok(polished_roots)
 }
 
-pub fn real_polynomial_roots(c_j: Vec<f64>, complex_threshold: f64) -> Result<Vec<f64>, anyhow::Error> {
+pub fn real_polynomial_roots(c_j: Vec<f64>, complex_threshold: f64) -> Result<Vec<f64>, ChebError> {
 
     let mut B_jk = monomial_fiedler_matrix(c_j.into());
 

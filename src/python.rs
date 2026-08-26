@@ -5,7 +5,7 @@ use pyo3::exceptions::*;
 #[cfg(feature = "python")]
 use pythonize::*;
 
-use crate::chebyshev::{chebyshev_adaptive, chebyshev_approximate, chebyshev_subdivide};
+use crate::chebyshev::{chebyshev_adaptive, chebyshev_approximate, chebyshev_subdivide, ErrorCalc};
 use crate::rootfinders::*;
 use crate::polish::secant_polish;
 use crate::lobatto_grid;
@@ -47,7 +47,7 @@ pub fn lobatto_grid_py<'py>(_python: Python<'py>, a: f64, b: f64, N: usize) -> P
 pub fn chebyshev_coefficients_py<'py>(_python: Python<'py>, f: &Bound<'py, PyAny>, a: f64, b: f64, epsilon: f64, n0: usize, n_max: usize) -> PyResult<(Vec<f64>, f64)> {
     
     let f = |x| f.clone().call1((x,))?.extract();
-    let (result, error, _) = chebyshev_adaptive(&f, a, b, n0, epsilon, n_max).map_err(|e| PyRuntimeError::new_err(format!("Secant polishing failed: {}", e)))?;
+    let (result, error, _) = chebyshev_adaptive(&f, a, b, n0, epsilon, n_max, ErrorCalc::Relative).map_err(|e| PyRuntimeError::new_err(format!("Secant polishing failed: {}", e)))?;
     Ok((result.iter().map(|x| *x).collect::<Vec<f64>>(), error))
 }
 
@@ -61,7 +61,7 @@ pub fn chebyshev_approximate_py(a_j: Vec<f64>, a: f64, b: f64, x: f64) -> PyResu
 #[pyfunction]
 pub fn chebyshev_subdivide_py<'py>(_python: Python<'py>, f: &Bound<'py, PyAny>, a: f64, b: f64, epsilon: f64, n0: usize, n_max: usize, interval_limit: f64) -> PyResult<(Vec<(f64, f64)>, Vec<Vec<f64>>)> {
     let f = |x| f.clone().call1((x,))?.extract();
-    let (intervals, coefficients, _) = chebyshev_subdivide(&f, vec![(a, b)], n0, epsilon, n_max, interval_limit).map_err(|e| PyRuntimeError::new_err(format!("Chebyshev subdivide failed: {}", e)))?;
+    let (intervals, coefficients, _) = chebyshev_subdivide(&f, vec![(a, b)], n0, epsilon, n_max, interval_limit, ErrorCalc::Relative).map_err(|e| PyRuntimeError::new_err(format!("Chebyshev subdivide failed: {}", e)))?;
     return Ok((intervals, coefficients.iter().map(|v| v.iter().map(|x| *x).collect::<Vec<f64>>()).collect()))
 }
 
