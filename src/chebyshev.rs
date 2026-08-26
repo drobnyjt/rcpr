@@ -47,6 +47,34 @@ pub enum NumericProblem {
     Comparison
 }
 
+/// Performs adaptive Chebyshev interpolation of a function f(x), on the interval x=[a, b].
+///
+/// This function calculates the Chebyshev coefficients and associated error (absolute or relative) 
+/// of a single-valued, real, continuous function on the interval [a, b], for the smallest degree N
+/// that satisfies error < epsilon. Each iteration, N0 is doubled until the desired error is achieved
+/// or N_max is reached. 
+///
+/// # Arguments
+/// `f`: the function f(x); must return Result<f64, E>
+/// `a`: left side of interval; f64 
+/// `b`: right side of interval; f64
+/// `N0`: initial degree of Chebyshev approximant; usize
+/// `epsilon`: error tolerance; f64
+/// `N_max`: maximum degree of Chebyshev approximant; usize
+/// `error_calc`: ErrorCalc::Absolute or ErrorCalc::Relative
+///
+/// # Returns
+///  `Ok((a_1, error, f_1))`
+/// `a_1`: Chebyshev coefficients; DVector<f64>
+/// `error`: absolute or relative error; f64
+/// `f_1`: function evaluations on the Lobatto grid used in interpolation
+///
+/// # Sources
+/// This algorithm combines aspects of the inteprolation described in [1] §3.2 and [2] Eq. 4.1-4.3.
+/// It also offers the option to use the relative error instead of the absolute error;
+/// in the author's experience, this improves convergence for f(x) with large dynamic range.
+/// [1] J Boyd, Solving Transcendental Equations, SIAM, 2014, doi: 10.1137/1.9781611973525
+/// [2] J Boyd, Finding the Zeros of a Univariate Equation, SIAM Review, 2013, doi:10.1137/110838297
 pub fn chebyshev_adaptive<F, E>(
     f: &F, a: f64, b: f64, N0: usize, epsilon: f64, N_max: usize, error_calc: ErrorCalc
     ) -> Result<(DVector<f64>, f64, DVector<f64>), ChebError>
@@ -61,7 +89,6 @@ pub fn chebyshev_adaptive<F, E>(
     let mut N0 = N0;
 
     loop {
-
         let N1 = 2*N0;
         let (a_1, f_1) = chebyshev_coefficients_fast(f, a, b, N1, f_0)?;
 
@@ -83,6 +110,20 @@ pub fn chebyshev_adaptive<F, E>(
     }
 }
 
+/// Approximates a function f(x) on an interval [a, b] from its Chebyshev coefficients.
+/// 
+/// # Arguments
+/// `a_j`: Chebyshev coefficients; DVector<f64>
+/// `a`: left side of interval; f64
+/// `b`: right side of interval; f64
+/// `x`: the position at which to approximate f(x); f64
+///
+/// # Returns
+/// `y`: approximate value of f(x); f64
+///
+/// # Sources
+///
+/// [1] §B.2.1 Eqs. B.9-B.13 and Table B.2
 pub fn chebyshev_approximate(a_j: DVector<f64>, a: f64, b: f64, x: f64) -> f64 {
     let N = a_j.len() - 1;
 
@@ -103,6 +144,28 @@ pub fn chebyshev_approximate(a_j: DVector<f64>, a: f64, b: f64, x: f64) -> f64 {
     (b0 - b3 + a_j[0]) / 2.0
 }
 
+/// Performs adaptive Chebyshev interpolation for f(x) on x=[a, b] with automatic subdivision.
+///
+/// # Arguments
+/// `f`: function to interpolate; must return Result<f64, E>.
+/// `intervals`: list of intervals on which to interpolate; Vec<(f64, f64)>
+/// `N0`: initial degree of Chebyshev approximant on each interval
+/// `epsilon`: error tolerance
+/// `interval_limit`: limit on interval width
+/// `error_calc`: ErrorCalc::Absolute or ErrorCalc::Relative
+/// 
+/// # Returns
+/// `Result<(intervals, coefficients, evaluations), ChebError>`
+/// `intervals`: intervals [a, b] found by automatic subdivision; Vec<(f64, f64)>
+/// `coefficients`: Chebyshev coefficients on each interval in `intervals`; DVector<f64>
+/// `evaluations`: Evaluations of f(x) on the Lobatto grid for each interval - saved for reuse
+/// 
+/// # Sources
+/// Strategy described in [1] §2.9 and [2]
+///
+/// # Errors
+/// Will return `ChebError::Numeric` if subdivided interval is smaller than specified
+/// limit or smaller than machine precision.
 pub fn chebyshev_subdivide<F, E>(
     f: &F, intervals: Vec<(f64, f64)>, N0: usize, epsilon: f64, N_max: usize, interval_limit: f64, error_calc: ErrorCalc
     ) -> Result<(Vec<(f64, f64)>, Vec<DVector<f64>>, Vec<DVector<f64>>), ChebError> 

@@ -203,6 +203,7 @@ pub fn find_roots<F, E>(f: &F, intervals: Vec<(f64, f64)>, config: Config) -> Re
             }
         }
     }
+    roots.sort_by(|a, b| a.total_cmp(b));
     Ok(roots)
 }
 
