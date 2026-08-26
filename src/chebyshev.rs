@@ -173,15 +173,6 @@ pub fn chebyshev_subdivide<F, E>(
         F: Fn(f64) -> Result<f64, E>,
         E: std::error::Error + Send + Sync + 'static,
     {
-    //Adaptive Chebyshev Series interpolation with automatic subdivision.
-    //
-    //This function automatically divides the domain by halves into subintervals
-    //such that the function F on each subinterval is well approximated (within
-    //epsilon) by a Chebyshev series of degree N_max or less.
-
-    //For each (sub)interval, the adaptive Chebyshev interpolation algorithm,
-    //which uses degree-doubling, is used to find a Chebyshev series of degree
-    //N0*2^(N_iterations) < N_max on the interval that is within epsilon of F.
 
     let mut coefficients: Vec<DVector<f64>> = Vec::new();
     let mut intervals_out: Vec<(f64, f64)> = Vec::new();
@@ -226,6 +217,7 @@ pub fn chebyshev_subdivide<F, E>(
     Ok((intervals_out, coefficients, evaluations))
 }
 
+/// Calculates the Chebyshev coefficients of a function f(x) on the interval [a, b]
 fn chebyshev_coefficients_fast<F, E>(f: &F, a: f64, b: f64, N: usize, previous: DVector<f64>) -> Result<(DVector<f64>, DVector<f64>), ChebError>
 where F: Fn(f64) -> Result<f64, E>, E: std::error::Error + Send + Sync + 'static, {
     //Given a function f and an interval [a, b], returns a vector of the Chebyshev interpolation
@@ -253,10 +245,10 @@ where F: Fn(f64) -> Result<f64, E>, E: std::error::Error + Send + Sync + 'static
     Ok((I_jk*f_xk.clone(), f_xk))
 }
 
+/// Given a vector of Chebyshev coefficients [a_0, ... a_N], return [a_0 ... a_i] such that a_i is the
+/// first element > estimated truncation error. 
 pub fn truncate_chebyshev_coefficients(a_j: DVector<f64>) -> Result<DVector<f64>, ChebError> {
 
-    // Boyd, Solving Transcendental Equations, 3.4
-    // This is an estimate for the truncation error - drop coefficients below this value.
     let truncation_error = (a_j.len() - 1) as f64 * f64::EPSILON * a_j.iter()
         .map(|x| x.abs())
         .max_by(f64::total_cmp)
@@ -279,6 +271,8 @@ pub fn truncate_chebyshev_coefficients(a_j: DVector<f64>) -> Result<DVector<f64>
     Ok(a_j)
 }
 
+/// Constructs the Chebyshev-Frobenius Companion Matrix from Chebyshev coefficients a_j.
+/// [2] B.2-3
 pub fn chebyshev_frobenius_matrix(a_j: DVector<f64>) -> Result<DMatrix<f64>, ChebError> {
 
     let N: usize = a_j.len() - 1;
@@ -313,6 +307,7 @@ pub fn chebyshev_frobenius_matrix(a_j: DVector<f64>) -> Result<DMatrix<f64>, Che
     }    
 }
 
+/// Helper function used in construction of matrices.
 fn p(j: usize, N: usize) -> f64 {
     if (j == 0) || (j == N) {
         2.
@@ -321,6 +316,7 @@ fn p(j: usize, N: usize) -> f64 {
     }
 }
 
+/// Kronecker delta; one if j == k, else 0.
 fn delta(j: i32, k: i32) -> f64 {
     if j == k {
         1.
@@ -330,6 +326,8 @@ fn delta(j: i32, k: i32) -> f64 {
 }
 
 #[concurrent_cached]
+/// Chebyshev interpolation matrix of size (N + 1).
+/// [2] A.3
 fn interpolation_matrix(N: usize) -> DMatrix<f64> {
 
     let mut I_jk: DMatrix<f64> = DMatrix::zeros(N + 1, N + 1);
