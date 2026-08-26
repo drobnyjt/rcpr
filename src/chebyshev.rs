@@ -11,10 +11,40 @@ pub enum ErrorCalc {
 
 #[derive(Error, Debug)]
 pub enum ChebError {
-    #[error("Input error")]
-    Input(String),
-    #[error("Generic")]
-    Generic(String)
+    #[error("Failed to converge: {0:?}")]
+    NotConverged(NotConvergedInfo),
+    #[error("Failed to evaluate function {0}")]
+    Function(String),
+    #[error("Numeric issue detected: {0:?}")]
+    Numeric(NumericProblem),
+    #[error("Invalid input: {0:?}")]
+    Input(InputProblem),
+}
+
+#[derive(Debug)]
+pub struct NotConvergedInfo {
+    pub function_name: &'static str,
+    pub previous_error: f64,
+    pub num_iterations: usize,
+}
+
+#[derive(Debug)]
+pub enum InputProblem {
+    IntervalInvalid((f64, f64)),
+    IntervalLimitInvalid(f64),
+    InitialDegreeInvalid(usize),
+    MaxDegreeInvalid(usize),
+    ComplexThresholdInvalid(f64),
+    EpsilonInvalid(f64),
+    FarFromZeroInvalid(f64),
+}
+
+#[derive(Debug)]
+pub enum NumericProblem {
+    NonFinite,
+    IntervalTooSmall((f64, f64)),
+    IntervalLimitReached((f64, f64)),
+    Comparison
 }
 
 pub fn chebyshev_adaptive<F, E>(
@@ -27,20 +57,20 @@ pub fn chebyshev_adaptive<F, E>(
     //Adaptive Chebyshev approximation of the function f on the interval [a, b], which starts from degree N0 and doubles
     //the degree each iteration until the error is less than epsilon, starting with order N0 returning the Chebyshev coefficients a if
     //convergence is reached before the degree exceeds N_max.
-    let (mut a_0, mut f_0) = chebyshev_coefficients_fast(f, a, b, N0, DVector::<f64>::from(vec![])).map_err(|e| ChebError::Generic(format!("{}", e)))?;
+    let (mut a_0, mut f_0) = chebyshev_coefficients_fast(f, a, b, N0, DVector::<f64>::from(vec![]))?;
     let mut N0 = N0;
 
     loop {
 
         let N1 = 2*N0;
-        let (a_1, f_1) = chebyshev_coefficients_fast(f, a, b, N1, f_0).map_err(|e| ChebError::Generic(format!("{}", e)))?;
+        let (a_1, f_1) = chebyshev_coefficients_fast(f, a, b, N1, f_0)?;
 
         //Error is defined as sum(delta) where delta_2N = fN(x) - f2N(x)
         //Since the N0..2N0 terms of fN are zero, this sum can be split into two pieces
         let absolute_error = a_0.iter().enumerate().map(|(i, a)| (a - a_1[i]).abs()).sum::<f64>() + a_1.iter().enumerate().filter(|(i, _)| i >= &(N0 + 1)).map(|(_, a)| a.abs()).sum::<f64>();
         let error = match error_calc {
             ErrorCalc::Absolute => absolute_error,
-            ErrorCalc::Relative => absolute_error/f_1.iter().map(|&x| x.abs()).max_by(f64::total_cmp).ok_or(ChebError::Generic(format!("Cannot calculate max f(x)")))?
+            ErrorCalc::Relative => absolute_error/f_1.iter().map(|&x| x.abs()).max_by(f64::total_cmp).ok_or(ChebError::Numeric(NumericProblem::Comparison))?
         };
 
         if (error < epsilon) || (2*N1 > N_max) {
@@ -97,8 +127,7 @@ pub fn chebyshev_subdivide<F, E>(
     for interval in intervals {
 
         if (interval.1 - interval.0) < interval_limit {
-            return Err(ChebError::Generic(format!("Reached minimum interval limit. [a, b] = [{}, {}], f(a) = {}, f(b) = {}",
-                interval.0, interval.1, f(interval.0).unwrap(), f(interval.1).unwrap())));
+            return Err(ChebError::Numeric(NumericProblem::IntervalLimitReached((interval.0, interval.1))))
         }
 
         let a = interval.0;
@@ -115,7 +144,7 @@ pub fn chebyshev_subdivide<F, E>(
 
             let mid = a + (b - a)/2.;
             if !(a < mid && mid < b) {
-                return Err(ChebError::Generic(format!("Next interval width below machine precision. [a, b] = [{}, {}]", a, b)))
+                return Err(ChebError::Numeric(NumericProblem::IntervalTooSmall((a, b))))
             }
 
             let result = chebyshev_subdivide(f, vec![(a, mid), (mid, b)], N0, epsilon, N_max, interval_limit, error_calc);
@@ -143,7 +172,7 @@ where F: Fn(f64) -> Result<f64, E>, E: std::error::Error + Send + Sync + 'static
 
     if previous.is_empty() {
 
-        let f_xk = DVector::<f64>::from(xk.iter().map(|&x| f(x)).collect::<Result<Vec<f64>, E>>().map_err(|e| ChebError::Generic(format!("{}", e)))?);
+        let f_xk = DVector::<f64>::from(xk.iter().map(|&x| f(x)).collect::<Result<Vec<f64>, E>>().map_err(|e| ChebError::Function(format!("Failed to calculate f(x): {}", e)))?);
 
         return Ok((I_jk*f_xk.clone(), f_xk))
     }
@@ -156,7 +185,7 @@ where F: Fn(f64) -> Result<f64, E>, E: std::error::Error + Send + Sync + 'static
         } else {
             f(x_i)
         }
-    ).collect::<Result<Vec<f64>, E>>().map_err(|e| ChebError::Generic(format!("{}", e)))?);
+    ).collect::<Result<Vec<f64>, E>>().map_err(|e| ChebError::Function(format!("Failed to calculate f(x): {}", e)))?);
     
     Ok((I_jk*f_xk.clone(), f_xk))
 }
@@ -168,7 +197,7 @@ pub fn truncate_chebyshev_coefficients(a_j: DVector<f64>) -> Result<DVector<f64>
     let truncation_error = (a_j.len() - 1) as f64 * f64::EPSILON * a_j.iter()
         .map(|x| x.abs())
         .max_by(f64::total_cmp)
-        .ok_or(ChebError::Generic(format!("Failed to calculate maximum coefficient.")))?;
+        .ok_or(ChebError::Numeric(NumericProblem::Comparison))?;
 
     for (index, &a) in a_j.iter().rev().enumerate() {
         if a.abs() > truncation_error {
@@ -197,7 +226,7 @@ pub fn chebyshev_frobenius_matrix(a_j: DVector<f64>) -> Result<DMatrix<f64>, Che
         if element.is_finite() {
             return Ok(DMatrix::from_vec(1, 1, vec![-a_j[0]/a_j[1]]))
         } else {
-            return Err(ChebError::Generic(format!("Invalid division detected in companion matrix.")))
+            return Err(ChebError::Numeric(NumericProblem::NonFinite))
         }
     }
 
@@ -215,7 +244,7 @@ pub fn chebyshev_frobenius_matrix(a_j: DVector<f64>) -> Result<DMatrix<f64>, Che
     }
 
     if A_jk.iter().any(|x| !x.is_finite()) {
-        return Err(ChebError::Generic(format!("Infinite or NaN element detected in companion matrix.")))
+        return Err(ChebError::Numeric(NumericProblem::NonFinite))
     } else {
         Ok(A_jk)
     }    

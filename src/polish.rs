@@ -1,27 +1,33 @@
 use crate::chebyshev::ChebError;
+use crate::chebyshev::*;
 
 pub fn newton_polish<F, D, E>(f: &F, df: &D, x0: f64, iter_max: usize, delta: f64) -> Result<f64, ChebError>
 where F: Fn(f64) -> Result<f64, E>, D: Fn(f64) -> Result<f64, E>, E: std::error::Error + Send + Sync + 'static, {
 
     if x0.is_nan() {
-        return Err(ChebError::Generic(format!("Initial guess NaN.")))
+        return Err(ChebError::Numeric(NumericProblem::NonFinite))
     }
 
     let mut x = x0;
+    let mut err = 0.;
 
     for _ in 1..=iter_max {
-        let df_x = df(x).map_err(|e| ChebError::Generic(format!("df could not be evaluated: {}", e)))?;
-        let xn = x - f(x).map_err(|e| ChebError::Generic(format!("f could not be evaluated: {}", e)))?/df_x;
-        if xn.is_nan() || (df_x.abs() < f64::EPSILON) {
-            return Err(ChebError::Generic(format!("NaN in Newton iteration.")))
+        let df_x = df(x).map_err(|e| ChebError::Function(format!("Failed to calculate df(x) for x={}: {}", x, e)))?;
+        let xn = x - f(x).map_err(|e| ChebError::Function(format!("Failed to calculate f(x) for x={}: {}", x, e)))?/df_x;
+        if xn.is_nan() || !(1./df_x).is_finite() {
+            return Err(ChebError::Numeric(NumericProblem::NonFinite))
         }
-        let err = hyberr(xn, x);
+        err = hyberr(xn, x);
         x = xn;
         if err < delta {
             return Ok(x);
         }
     }
-    Err(ChebError::Generic(format!("Newton failed to converge after {} iterations.", iter_max)))
+    Err(ChebError::NotConverged(NotConvergedInfo {
+        function_name: "newton_polish",
+        previous_error: err,
+        num_iterations: iter_max
+    }))
 }
 
 /// Hybrid Error: https://arxiv.org/html/2403.07492v2
@@ -32,7 +38,7 @@ fn hyberr(x: f64, y: f64) -> f64 {
 pub fn secant_polish<F, E>(f: &F, x0: f64, iter_max: usize, delta: f64) -> Result<f64, ChebError> where F: Fn(f64) -> Result<f64, E>, E: std::error::Error + Send + Sync + 'static, {
 
     if x0.is_nan() {
-        return Err(ChebError::Generic(format!("Secant iteration guess is NaN. Check preceding calculation.")))
+        return Err(ChebError::Numeric(NumericProblem::NonFinite))
     }
 
     let mut x1 = x0;
@@ -45,8 +51,8 @@ pub fn secant_polish<F, E>(f: &F, x0: f64, iter_max: usize, delta: f64) -> Resul
     
     for _ in 1..=iter_max {
 
-        let f2 = f(x2).map_err(|e| ChebError::Generic(format!("Failed to calculate f(x) for x={}: {}", x2, e)))?;
-        let f1 = f(x1).map_err(|e| ChebError::Generic(format!("Failed to calculate f(x) for x={}: {}", x1, e)))?;
+        let f2 = f(x2).map_err(|e| ChebError::Function(format!("Failed to calculate f(x) for x={}: {}", x2, e)))?;
+        let f1 = f(x1).map_err(|e| ChebError::Function(format!("Failed to calculate f(x) for x={}: {}", x1, e)))?;
         let df = f2 - f1;
 
         let x3 = x2 - f2*(x2 - x1)/df;
@@ -61,5 +67,9 @@ pub fn secant_polish<F, E>(f: &F, x0: f64, iter_max: usize, delta: f64) -> Resul
         x1 = x2;
         x2 = x3;
     }
-    Err(ChebError::Generic(format!("Secant failed to converge after {} iterations.", iter_max)))
+    Err(ChebError::NotConverged(NotConvergedInfo {
+        function_name: "secant_polish",
+        previous_error: hyberr(x2, x1),
+        num_iterations: iter_max
+    }))
 }

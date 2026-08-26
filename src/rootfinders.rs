@@ -1,6 +1,6 @@
 pub use super::*;
 
-use crate::chebyshev::{chebyshev_subdivide, chebyshev_frobenius_matrix, truncate_chebyshev_coefficients, ErrorCalc, ChebError};
+use crate::chebyshev::*;//{chebyshev_subdivide, chebyshev_frobenius_matrix, truncate_chebyshev_coefficients, ErrorCalc, ChebError};
 use crate::polish::*;
 use serde::*;
 use nalgebra::Schur;
@@ -110,15 +110,31 @@ pub fn find_roots<F, E>(f: &F, intervals: Vec<(f64, f64)>, config: Config) -> Re
 
     let Config { epsilon, N0, N_max, complex_threshold, far_from_zero, interval_limit, error_calc, .. } = config;
 
-    if (N0 <= 0) || (N_max <= N0) || (complex_threshold < 0.) || (interval_limit <= 0.) || (far_from_zero <= 0.) {
-        return Err(ChebError::Generic(format!("")))
+    if N0<=0 {
+        return Err(ChebError::Input(InputProblem::InitialDegreeInvalid(N0)))
+    }
+
+    if N_max <= N0 {
+        return Err(ChebError::Input(InputProblem::MaxDegreeInvalid(N_max)))
+    }
+
+    if complex_threshold < 0.0 {
+        return Err(ChebError::Input(InputProblem::ComplexThresholdInvalid(complex_threshold)))
+    }
+
+    if interval_limit <= 0. {
+        return Err(ChebError::Input(InputProblem::IntervalLimitInvalid(interval_limit)))
+    }
+
+    if far_from_zero <= 0. {
+        return Err(ChebError::Input(InputProblem::FarFromZeroInvalid(far_from_zero)))
     }
 
     let a = intervals[0].0;
     let b = intervals[intervals.len() - 1].1;
 
     if b <= a {
-        return Err(ChebError::Generic(format!("Invalid interval [a, b] = [{}, {}]", a, b)))
+        return Err(ChebError::Input(InputProblem::IntervalInvalid((a, b))))
     }
 
     let (intervals, coefficients, evaluations) = chebyshev_subdivide(f, intervals, N0, epsilon, N_max, interval_limit, error_calc)?;
@@ -199,7 +215,7 @@ pub fn find_roots_piecewise_with_newton_polishing<F, G, D, E>(g: &G, f: &F, df: 
     let b = intervals[intervals.len() - 1].1;
 
     if b <= a {
-        return Err(ChebError::Generic(format!("Invalid interval [a, b] = [{}, {}]", a, b)))
+        return Err(ChebError::Input(InputProblem::IntervalInvalid((a, b))))
     }
 
     let roots = find_roots(g, intervals, config)?;
