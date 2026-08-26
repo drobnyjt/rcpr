@@ -1,6 +1,6 @@
 pub use super::*;
 
-use crate::chebyshev::{chebyshev_subdivide, chebyshev_frobenius_matrix, truncate_chebyshev_coefficients};
+use crate::chebyshev::{chebyshev_subdivide, chebyshev_frobenius_matrix, truncate_chebyshev_coefficients, ErrorCalc};
 use crate::polish::*;
 use serde::*;
 use nalgebra::Schur;
@@ -42,6 +42,10 @@ const fn default_float_1_e_minus_12() -> f64 {
     1e-12
 }
 
+const fn default_error_calc() -> ErrorCalc {
+    ErrorCalc::Absolute
+}
+
 #[derive(Clone, Copy, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Config {
@@ -59,6 +63,8 @@ pub struct Config {
     pub far_from_zero: f64, 
     #[serde(default = "default_float_zero")]
     pub interval_limit: f64,
+    #[serde(default = "default_error_calc")]
+    pub error_calc: ErrorCalc
 }
 
 impl Default for Config {
@@ -71,6 +77,7 @@ impl Default for Config {
             complex_threshold: default_float_1_10000(),
             far_from_zero: default_float_max(),
             interval_limit: default_float_1_e_minus_12(),
+            error_calc: default_error_calc(),
         }
     }
 }
@@ -83,7 +90,8 @@ impl Config {
         N_max: usize,
         complex_threshold: f64,
         far_from_zero: f64,
-        interval_limit: f64
+        interval_limit: f64,
+        error_calc: ErrorCalc
     ) -> Config {
         Config {
             epsilon,
@@ -92,14 +100,15 @@ impl Config {
             N_max,
             complex_threshold,
             far_from_zero,
-            interval_limit
+            interval_limit,
+            error_calc
         }
     }
 }
 
 pub fn find_roots<F, E>(f: &F, intervals: Vec<(f64, f64)>, config: Config) -> Result<Vec<f64>, anyhow::Error> where F: Fn(f64) -> Result<f64, E>, E: std::error::Error + Send + Sync + 'static,  {
 
-    let Config { epsilon, N0, N_max, complex_threshold, far_from_zero, interval_limit, .. } = config;
+    let Config { epsilon, N0, N_max, complex_threshold, far_from_zero, interval_limit, error_calc, .. } = config;
 
     ensure!(N0 > 0, "N0 cannot be zero.");
     ensure!(N_max >= N0, "N_max cannot be smaller than N0.");
@@ -112,7 +121,7 @@ pub fn find_roots<F, E>(f: &F, intervals: Vec<(f64, f64)>, config: Config) -> Re
 
     ensure!(b > a, "Invalid interval [{}, {}]", a, b);
 
-    let (intervals, coefficients, evaluations) = chebyshev_subdivide(f, intervals, N0, epsilon, N_max, interval_limit)?;
+    let (intervals, coefficients, evaluations) = chebyshev_subdivide(f, intervals, N0, epsilon, N_max, interval_limit, error_calc)?;
     let mut roots: Vec<f64> = Vec::new();
 
     for (index, ((i, c), fxk)) in intervals.iter().zip(coefficients).zip(evaluations).enumerate() {

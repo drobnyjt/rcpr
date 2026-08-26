@@ -49,10 +49,6 @@ pub fn secant_polish<F, E>(f: &F, x0: f64, iter_max: usize, delta: f64) -> Resul
         let f1 = f(x1)?;
         let df = f2 - f1;
 
-        if df.abs() < f64::EPSILON {
-            return Err(anyhow!("Step size {} too small for secant.", x2 - x1))
-        }
-
         let x3 = x2 - f2*(x2 - x1)/df;
 
         //let err = (x3 - x2)*(x3 - x2);

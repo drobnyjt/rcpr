@@ -1,5 +1,6 @@
 pub use crate::rootfinders::*;
 pub use crate::polish::*;
+pub use crate::chebyshev::*;
 
 fn g(x: f64) -> Result<f64, std::convert::Infallible> {
     Ok(f(x).unwrap()/(10. + x.powf(6.)))
@@ -29,14 +30,19 @@ fn dynamic_range() {
     let a = 0.0;
     let b = 8.5;
     let mut config = Config::default();
-    config.epsilon = 1e-4;
+    config.epsilon = 1e-9;
+    config.error_calc = ErrorCalc::Relative;
     let mut roots = find_roots(&q, vec![(a, b)], config).unwrap();
     roots.sort_by(|a, b| a.total_cmp(b));
-        for root in roots.iter() {
-        println!("Dynamic Range Root: {}", root);
+
+    let mut roots_polished = vec![];
+    for &root in roots.iter() {
+        let new_root = secant_polish(&q, root, 1000, f64::EPSILON).unwrap();
+        roots_polished.push(new_root);
+        println!("{} -> {}", root, new_root);
     }
-    assert!((roots[0] - 1.0).abs() < config.epsilon);
-    assert!((roots.last().unwrap() - 3.0).abs() < config.epsilon);
+    assert!((roots_polished[0] - 1.0).abs() < config.epsilon);
+    assert!((roots_polished.last().unwrap() - 3.0).abs() < config.epsilon);
 }
 
 #[test]
