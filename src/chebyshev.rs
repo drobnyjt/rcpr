@@ -97,7 +97,14 @@ pub fn chebyshev_adaptive<F, E>(
         let absolute_error = a_0.iter().enumerate().map(|(i, a)| (a - a_1[i]).abs()).sum::<f64>() + a_1.iter().enumerate().filter(|(i, _)| i >= &(N0 + 1)).map(|(_, a)| a.abs()).sum::<f64>();
         let error = match error_calc {
             ErrorCalc::Absolute => absolute_error,
-            ErrorCalc::Relative => absolute_error/f_1.iter().map(|&x| x.abs()).max_by(f64::total_cmp).ok_or(ChebError::Numeric(NumericProblem::Comparison))?
+            ErrorCalc::Relative => {
+                let norm = f_1.iter().map(|&x| x.abs()).max_by(f64::total_cmp).ok_or(ChebError::Numeric(NumericProblem::Comparison))?;
+                if norm == 0.0 {
+                    absolute_error
+                } else {
+                    absolute_error/norm
+                }
+            }
         };
 
         if (error < epsilon) || (2*N1 > N_max) {
