@@ -1,6 +1,6 @@
 [package]
 name = "rcpr"
-version = "0.3.0"
+version = "0.4.0"
 authors = ["Jon Drobny <jdrobny@tae.com>"]
 edition = "2024"
 
@@ -9,7 +9,7 @@ edition = "2024"
 [dependencies]
 nalgebra = "0.35.0"
 pyo3 = {version="0.29.2", optional=true}
-anyhow = "1.0.104"
+thiserror = "2"
 serde = {version="1.0.229", features=["derive"]}
 pythonize = {version="0.29.0", optional=true}
 cached = "2.0.2"

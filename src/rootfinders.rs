@@ -1,6 +1,6 @@
 pub use super::*;
 
-use crate::chebyshev::{chebyshev_subdivide, chebyshev_frobenius_matrix, truncate_chebyshev_coefficients};
+use crate::chebyshev::*;//{chebyshev_subdivide, chebyshev_frobenius_matrix, truncate_chebyshev_coefficients, ErrorCalc, ChebError};
 use crate::polish::*;
 use serde::*;
 use nalgebra::Schur;
@@ -42,6 +42,20 @@ const fn default_float_1_e_minus_12() -> f64 {
     1e-12
 }
 
+const fn default_error_calc() -> ErrorCalc {
+    ErrorCalc::Absolute
+}
+
+/// Rootfinder configuration options
+/// # Fields
+/// `epsilon`: relative or absolute error of Chebyshev interpolation; f64
+/// `delta`: hybrid error of polishers; f64
+/// `N0`: initial degree of Chebyshev interpolation; usize
+/// `N_max`: maximum degree of Chebyshev interpolation; usize
+/// `complex_threshold`: magnitude of root complexity to ignore; f64
+/// `far_from_zero`: skips intervals on which all Chebyshev coefficients > this value
+/// `interval_limit`: limit on interval size after subdivision
+/// `error_calc`: ErrCalc::Absolute or ErrorCalc::Relative  
 #[derive(Clone, Copy, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Config {
@@ -59,6 +73,8 @@ pub struct Config {
     pub far_from_zero: f64, 
     #[serde(default = "default_float_zero")]
     pub interval_limit: f64,
+    #[serde(default = "default_error_calc")]
+    pub error_calc: ErrorCalc
 }
 
 impl Default for Config {
@@ -71,6 +87,7 @@ impl Default for Config {
             complex_threshold: default_float_1_10000(),
             far_from_zero: default_float_max(),
             interval_limit: default_float_1_e_minus_12(),
+            error_calc: default_error_calc(),
         }
     }
 }
@@ -83,7 +100,8 @@ impl Config {
         N_max: usize,
         complex_threshold: f64,
         far_from_zero: f64,
-        interval_limit: f64
+        interval_limit: f64,
+        error_calc: ErrorCalc
     ) -> Config {
         Config {
             epsilon,
@@ -92,27 +110,58 @@ impl Config {
             N_max,
             complex_threshold,
             far_from_zero,
-            interval_limit
+            interval_limit,
+            error_calc
         }
     }
 }
 
-pub fn find_roots<F, E>(f: &F, intervals: Vec<(f64, f64)>, config: Config) -> Result<Vec<f64>, anyhow::Error> where F: Fn(f64) -> Result<f64, E>, E: std::error::Error + Send + Sync + 'static,  {
+/// Finds all roots of a function f(x) on the interval [a, b]
+/// via adaptive Chebyshev proxy rootfinding with automatic subdivision.
+///
+/// # Arguments
+/// `f`: function to find roots of; must return Result<f64, E>
+/// `intervals`: Vec of intervals [a_i, b_i], to, piecewise, find roots on; Vec<(f64, f64)>
+/// `config`: `Config` struct that configures rootfinder.
+/// 
+/// # Returns
+/// `Result<roots, ChebError>`
+/// `roots`: list of roots found, sorted. Roots are not deduplicated.
+/// 
+/// # Sources
+/// Most complete, succinct description can be found in [2]. More discussion in [1].
+pub fn find_roots<F, E>(f: &F, intervals: Vec<(f64, f64)>, config: Config) -> Result<Vec<f64>, ChebError> where F: Fn(f64) -> Result<f64, E>, E: std::error::Error + Send + Sync + 'static,  {
 
-    let Config { epsilon, N0, N_max, complex_threshold, far_from_zero, interval_limit, .. } = config;
+    let Config { epsilon, N0, N_max, complex_threshold, far_from_zero, interval_limit, error_calc, .. } = config;
 
-    ensure!(N0 > 0, "N0 cannot be zero.");
-    ensure!(N_max >= N0, "N_max cannot be smaller than N0.");
-    ensure!(complex_threshold >= 0., "Complex threshold cannot be less than zero.");
-    ensure!(interval_limit >= 0., "Interval limit cannot be less than zero.");
-    ensure!(far_from_zero >= 0., "Far-from-zero threshold cannot be less than zero.");
+    if N0<=0 {
+        return Err(ChebError::Input(InputProblem::InitialDegreeInvalid(N0)))
+    }
+
+    if N_max <= N0 {
+        return Err(ChebError::Input(InputProblem::MaxDegreeInvalid(N_max)))
+    }
+
+    if complex_threshold < 0.0 {
+        return Err(ChebError::Input(InputProblem::ComplexThresholdInvalid(complex_threshold)))
+    }
+
+    if interval_limit <= 0. {
+        return Err(ChebError::Input(InputProblem::IntervalLimitInvalid(interval_limit)))
+    }
+
+    if far_from_zero <= 0. {
+        return Err(ChebError::Input(InputProblem::FarFromZeroInvalid(far_from_zero)))
+    }
 
     let a = intervals[0].0;
     let b = intervals[intervals.len() - 1].1;
 
-    ensure!(b > a, "Invalid interval [{}, {}]", a, b);
+    if b <= a {
+        return Err(ChebError::Input(InputProblem::IntervalInvalid((a, b))))
+    }
 
-    let (intervals, coefficients, evaluations) = chebyshev_subdivide(f, intervals, N0, epsilon, N_max, interval_limit)?;
+    let (intervals, coefficients, evaluations) = chebyshev_subdivide(f, intervals, N0, epsilon, N_max, interval_limit, error_calc)?;
     let mut roots: Vec<f64> = Vec::new();
 
     for (index, ((i, c), fxk)) in intervals.iter().zip(coefficients).zip(evaluations).enumerate() {
@@ -129,7 +178,7 @@ pub fn find_roots<F, E>(f: &F, intervals: Vec<(f64, f64)>, config: Config) -> Re
             continue
         }
 
-        //Truncate trailing chebyshev coefficients if below threshold
+        //Truncate trailing chebyshev coefficients below estimated threshold
         let a_j = truncate_chebyshev_coefficients(c)?;
 
         // If len(a_j) is 1, the function is a constant and the interval can be skipped.
@@ -178,10 +227,25 @@ pub fn find_roots<F, E>(f: &F, intervals: Vec<(f64, f64)>, config: Config) -> Re
             }
         }
     }
+    roots.sort_by(|a, b| a.total_cmp(b));
     Ok(roots)
 }
 
-pub fn find_roots_piecewise_with_newton_polishing<F, G, D, E>(g: &G, f: &F, df: &D, intervals: Vec<(f64, f64)>, config: Config) -> Result<Vec<f64>, anyhow::Error>
+/// Finds and Newton-polishes all roots of a function f(x) on intervals [a_i, b_i]
+/// via adaptive Chebyshev proxy rootfinding with automatic subdivision
+///
+/// # Arguments
+/// `f`: function to find roots of; must return Result<f64, E>
+/// `intervals`: Vec of intervals [a_i, b_i], to, piecewise, find roots on; Vec<(f64, f64)>
+/// `config`: `Config` struct that configures rootfinder.
+/// 
+/// # Returns
+/// `Result<roots, ChebError>`
+/// `roots`: list of roots found, sorted. Roots are not deduplicated.
+/// 
+/// # Sources
+/// Most complete, succinct description can be found in [2]. More discussion in [1].
+pub fn find_roots_piecewise_with_newton_polishing<F, G, D, E>(g: &G, f: &F, df: &D, intervals: Vec<(f64, f64)>, config: Config) -> Result<Vec<f64>, ChebError>
     where F: Fn(f64) -> Result<f64, E>, G: Fn(f64) -> Result<f64, E>, D: Fn(f64) -> Result<f64, E>, E: std::error::Error + Send + Sync + 'static,    {
 
     let Config {delta, ..} = config;
@@ -189,7 +253,9 @@ pub fn find_roots_piecewise_with_newton_polishing<F, G, D, E>(g: &G, f: &F, df: 
     let a = intervals[0].0;
     let b = intervals[intervals.len() - 1].1;
 
-    ensure!(b > a, "Invalid interval [{}, {}]", a, b);
+    if b <= a {
+        return Err(ChebError::Input(InputProblem::IntervalInvalid((a, b))))
+    }
 
     let roots = find_roots(g, intervals, config)?;
     let mut polished_roots: Vec<f64> = Vec::new();
@@ -205,10 +271,23 @@ pub fn find_roots_piecewise_with_newton_polishing<F, G, D, E>(g: &G, f: &F, df: 
         };
     }
     Ok(polished_roots)
-
 }
 
-pub fn find_roots_with_secant_polishing<F, G, E>(g: &G, f: &F, a: f64, b: f64, config: Config) -> Result<Vec<f64>, anyhow::Error> where F: Fn(f64) -> Result<f64, E>, G: Fn(f64) -> Result<f64, E>, E: std::error::Error + Send + Sync + 'static, {
+/// Finds and Secant-polishes all roots of a function f(x) on interval [a, b]
+/// via adaptive Chebyshev proxy rootfinding with automatic subdivision
+///
+/// # Arguments
+/// `f`: function to find roots of; must return Result<f64, E>
+/// `intervals`: Vec of intervals [a_i, b_i], to, piecewise, find roots on; Vec<(f64, f64)>
+/// `config`: `Config` struct that configures rootfinder.
+/// 
+/// # Returns
+/// `Result<roots, ChebError>`
+/// `roots`: list of roots found, sorted. Roots are not deduplicated.
+/// 
+/// # Sources
+/// Most complete, succinct description can be found in [2]. More discussion in [1].
+pub fn find_roots_with_secant_polishing<F, G, E>(g: &G, f: &F, a: f64, b: f64, config: Config) -> Result<Vec<f64>, ChebError> where F: Fn(f64) -> Result<f64, E>, G: Fn(f64) -> Result<f64, E>, E: std::error::Error + Send + Sync + 'static, {
 
     let Config {delta, ..} = config;
 
@@ -228,7 +307,21 @@ pub fn find_roots_with_secant_polishing<F, G, E>(g: &G, f: &F, a: f64, b: f64, c
     Ok(polished_roots)
 }
 
-pub fn find_roots_with_newton_polishing<F, G, D, E>(g: &G, f: &F, df: &D, a: f64, b: f64, config: Config) -> Result<Vec<f64>, anyhow::Error>
+/// Finds and Newton-polishes all roots of a function f(x) on interval [a, b]
+/// via adaptive Chebyshev proxy rootfinding with automatic subdivision
+///
+/// # Arguments
+/// `f`: function to find roots of; must return Result<f64, E>
+/// `intervals`: Vec of intervals [a_i, b_i], to, piecewise, find roots on; Vec<(f64, f64)>
+/// `config`: `Config` struct that configures rootfinder.
+/// 
+/// # Returns
+/// `Result<roots, ChebError>`
+/// `roots`: list of roots found, sorted. Roots are not deduplicated.
+/// 
+/// # Sources
+/// Most complete, succinct description can be found in [2]. More discussion in [1].
+pub fn find_roots_with_newton_polishing<F, G, D, E>(g: &G, f: &F, df: &D, a: f64, b: f64, config: Config) -> Result<Vec<f64>, ChebError>
     where F: Fn(f64) -> Result<f64, E>, G: Fn(f64) -> Result<f64, E>, D: Fn(f64) -> Result<f64, E>, E: std::error::Error + Send + Sync + 'static, {
 
     let Config {delta, ..} = config;
@@ -250,7 +343,21 @@ pub fn find_roots_with_newton_polishing<F, G, D, E>(g: &G, f: &F, df: &D, a: f64
     Ok(polished_roots)
 }
 
-pub fn find_roots_piecewise_with_secant_polishing<F, G, E>(g: &G, f: &F, intervals: Vec<(f64, f64)>, config: Config) -> Result<Vec<f64>, anyhow::Error>
+/// Finds and Secant-polishes all roots of a function f(x) on intervals [a_i, b_i]
+/// via adaptive Chebyshev proxy rootfinding with automatic subdivision
+///
+/// # Arguments
+/// `f`: function to find roots of; must return Result<f64, E>
+/// `intervals`: Vec of intervals [a_i, b_i], to, piecewise, find roots on; Vec<(f64, f64)>
+/// `config`: `Config` struct that configures rootfinder.
+/// 
+/// # Returns
+/// `Result<roots, ChebError>`
+/// `roots`: list of roots found, sorted. Roots are not deduplicated.
+/// 
+/// # Sources
+/// Most complete, succinct description can be found in [2]. More discussion in [1].
+pub fn find_roots_piecewise_with_secant_polishing<F, G, E>(g: &G, f: &F, intervals: Vec<(f64, f64)>, config: Config) -> Result<Vec<f64>, ChebError>
     where F: Fn(f64) -> Result<f64, E>, G: Fn(f64) -> Result<f64, E>, E: std::error::Error + Send + Sync + 'static, {
 
     let Config {delta, ..} = config;
@@ -273,7 +380,18 @@ pub fn find_roots_piecewise_with_secant_polishing<F, G, E>(g: &G, f: &F, interva
     Ok(polished_roots)
 }
 
-pub fn real_polynomial_roots(c_j: Vec<f64>, complex_threshold: f64) -> Result<Vec<f64>, anyhow::Error> {
+/// Finds all roots of a polynomial via eigenvalues of the monomial Fiedler companion matrix
+/// 
+/// # Arguments
+/// `c_j` list of coefficients in monomial basis - e.g., x^2 - 3.*x - 1.0 is [1, -3, -1]
+///
+/// # Returns
+/// Result<roots, ChebError>
+/// `roots`: list of roots found; Vec<f64>
+/// 
+/// # Source
+/// 
+pub fn real_polynomial_roots(c_j: Vec<f64>, complex_threshold: f64) -> Result<Vec<f64>, ChebError> {
 
     let mut B_jk = monomial_fiedler_matrix(c_j.into());
 
