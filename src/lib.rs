@@ -1,3 +1,21 @@
+//! rcpr: an implementaion of Boyd's adaptive Chebyshev Proxy Rootfinder with automatic subdivision  
+//! 
+//! This library provides global rootfinding for single-valued real, continuous functions on an 
+//! interval and auxiliary functions using Chebyshev proxies.
+//!
+//! This strategy is described by Boyd in \[1\] and \[2\] (docstrings of functions cite section/page/equation numbers).
+//! In short, ACPRAS finds all roots of a smooth, single-valued function f(x) on an interval [a, b].
+//! It does this by first performing adaptive Chebyshev interpolation with automatic subdivision - that is,
+//! rcpr attempts to fit a Chebyshev polynomial of degree N to f(x) [a, b], and, if it cannot reach the user-specified
+//! error, it first doubles the degree to 2N until it reaches a user-specified maximum degree. If the desired
+//! error cannot be reached, it then  splits the interval into [a, a + (b-a)/2] and [a + (b-a)/2, b] and tries again,
+//! starting from degree N in each interval.
+//! 
+//! rcpr also provides eigenvalue rootfinding for polynomials via the Fiedler companion matrix \[3\].
+//! 
+//! \[1\] J Boyd, Solving Transcendental Equations, SIAM, 2014, doi: 10.1137/1.9781611973525
+//! \[2\] J Boyd, Finding the Zeros of a Univariate Equation, SIAM Review, 2013, doi:10.1137/110838297
+//! \[3\] M. Fiedler, A note on companion matrices, Lin. Alg. and its App., 2003, doi:10.1016/S0024-3795(03)00548-2  
 #![allow(non_snake_case)]
 const NEWTON_MAX_ITERATIONS: usize = 1000;
 const SECANT_MAX_ITERATIONS: usize = 1000;
