@@ -36,6 +36,7 @@ pub enum InputProblem {
     ComplexThresholdInvalid(f64),
     EpsilonInvalid(f64),
     FarFromZeroInvalid(f64),
+    Degree1Invalid,
 }
 
 #[derive(Debug)]
