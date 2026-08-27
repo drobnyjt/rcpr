@@ -133,7 +133,7 @@ pub fn find_roots<F, E>(f: &F, intervals: Vec<(f64, f64)>, config: Config) -> Re
 
     let Config { epsilon, N0, N_max, complex_threshold, far_from_zero, interval_limit, error_calc, .. } = config;
 
-    if N0<=0 {
+    if N0==0 {
         return Err(ChebError::Input(InputProblem::InitialDegreeInvalid(N0)))
     }
 

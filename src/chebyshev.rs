@@ -304,7 +304,7 @@ pub fn chebyshev_frobenius_matrix(a_j: DVector<f64>) -> Result<DMatrix<f64>, Che
     let inv_2_aj_N = 1./2./a_j[N];
     for k in 0..N {
         A_jk[(0, k)] = delta(1, k as i32);
-        A_jk[(N - 1, k)] = (-1.)*(a_j[k]*inv_2_aj_N) + (1./2.)*delta(k as i32, N as i32 - 2);
+        A_jk[(N - 1, k)] = -(a_j[k]*inv_2_aj_N) + (1./2.)*delta(k as i32, N as i32 - 2);
     }
 
     for j in 1..N - 1 {
@@ -313,7 +313,7 @@ pub fn chebyshev_frobenius_matrix(a_j: DVector<f64>) -> Result<DMatrix<f64>, Che
     }
 
     if A_jk.iter().any(|x| !x.is_finite()) {
-        return Err(ChebError::Numeric(NumericProblem::NonFinite))
+        Err(ChebError::Numeric(NumericProblem::NonFinite))
     } else {
         Ok(A_jk)
     }    

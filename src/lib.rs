@@ -57,7 +57,6 @@ pub fn monomial_frobenius_matrix(c_j: DVector<f64>) -> DMatrix<f64> {
 /// # Source  
 /// \[3\] Example 2.4 and surrounding discussion  
 ///  - \[3\] M. Fiedler, A note on companion matrices, Lin. Alg. and its App., 2003, doi:10.1016/S0024-3795(03)00548-2  
-
 fn monomial_fiedler_matrix(c_j: DVector<f64>) -> DMatrix<f64> {
     let N: usize = c_j.len() - 1;
 
