@@ -168,11 +168,11 @@ pub fn chebyshev_approximate(a_j: DVector<f64>, a: f64, b: f64, x: f64) -> f64 {
 ///  - `coefficients`: Chebyshev coefficients on each interval in `intervals`; `DVector<f64>`
 ///  - `evaluations`: Evaluations of f(x) on the Lobatto grid for each interval - saved for reuse
 /// 
-/// # Sources
-/// Strategy described in \[1\] §2.9 and \[2\]
-///
 /// # Errors
 /// Will return `ChebError::Numeric` if subdivided interval is smaller than specified
+///
+/// # Sources
+/// Strategy described in \[1\] §2.9 and \[2\]
 /// limit or smaller than machine precision.
 ///  - \[1\] J Boyd, Solving Transcendental Equations, SIAM, 2014, doi: 10.1137/1.9781611973525
 ///  - \[2\] J Boyd, Finding the Zeros of a Univariate Equation, SIAM Review, 2013, doi:10.1137/110838297
