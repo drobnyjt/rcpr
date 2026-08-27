@@ -198,6 +198,20 @@ pub fn find_roots<F, E>(f: &F, intervals: Vec<(f64, f64)>, config: Config) -> Re
         //https://doi.org/10.1007/BF02165404
         balance_parlett_reinsch(&mut A);
 
+        let eigenvalues = A.complex_eigenvalues();
+
+        for eigenvalue in eigenvalues.iter() {
+            if (eigenvalue.im.abs() <= complex_threshold) && (eigenvalue.re.abs() < 1.0 + config.epsilon) {
+                if (index < intervals.len() - 1) && (1.0 - eigenvalue.re) <= f64::EPSILON {
+                    // if not right-most interval, attempt to drop eigenvalues on right boundary
+                    // this check needs to be more strict than above or it discards real roots
+                    continue
+                }
+                roots.push(eigenvalue.re*(i.1 - i.0)/2. + (i.1 + i.0)/2.)
+            }
+        }
+    }
+        /*
         // I mistakenly removed this because Issue #611 in nalgebra,
         // which requires this hack to prevent infinite loops, was resolved,
         // but the fix is not actually implemented in any release. Hence, back 
@@ -226,6 +240,7 @@ pub fn find_roots<F, E>(f: &F, intervals: Vec<(f64, f64)>, config: Config) -> Re
             }
         }
     }
+    */
     roots.sort_by(|a, b| a.total_cmp(b));
     Ok(roots)
 }
