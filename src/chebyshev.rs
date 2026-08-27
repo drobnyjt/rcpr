@@ -1,5 +1,4 @@
 use super::*;
-use cached::*;
 use serde::Deserialize;
 use thiserror::Error;
 
@@ -216,7 +215,7 @@ pub fn chebyshev_subdivide<F, E>(
             if let Ok((intervals_new, coefficients_new, evlautions_new)) = result {
                 for ((i, c), evaluation) in intervals_new.iter().zip(coefficients_new).zip(evlautions_new) {
                     intervals_out.push(*i);
-                    coefficients.push(c.clone());
+                    coefficients.push(c);
                     evaluations.push(evaluation);
                 }
             } else {
@@ -239,7 +238,7 @@ where F: Fn(f64) -> Result<f64, E>, E: std::error::Error + Send + Sync + 'static
 
         let f_xk = DVector::<f64>::from(xk.iter().map(|&x| f(x)).collect::<Result<Vec<f64>, E>>().map_err(|e| ChebError::Function(format!("Failed to calculate f(x): {}", e)))?);
 
-        return Ok((I_jk*f_xk.clone(), f_xk))
+        return Ok((&I_jk*&f_xk, f_xk))
     }
 
     let f_xk = DVector::<f64>::from(
@@ -252,7 +251,7 @@ where F: Fn(f64) -> Result<f64, E>, E: std::error::Error + Send + Sync + 'static
         }
     ).collect::<Result<Vec<f64>, E>>().map_err(|e| ChebError::Function(format!("Failed to calculate f(x): {}", e)))?);
     
-    Ok((I_jk*f_xk.clone(), f_xk))
+    Ok((&I_jk*&f_xk, f_xk))
 }
 
 /// Given a vector of Chebyshev coefficients [a_0, ... a_N], return [a_0 ... a_i] such that a_i is the
