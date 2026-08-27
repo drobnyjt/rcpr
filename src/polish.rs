@@ -1,6 +1,7 @@
 use crate::chebyshev::ChebError;
 use crate::chebyshev::*;
 
+/// Polishes roots of a function f(x) using Newton's method to specified error delta; returns error if iter_max exceeded
 pub fn newton_polish<F, D, E>(f: &F, df: &D, x0: f64, iter_max: usize, delta: f64) -> Result<f64, ChebError>
 where F: Fn(f64) -> Result<f64, E>, D: Fn(f64) -> Result<f64, E>, E: std::error::Error + Send + Sync + 'static, {
 
@@ -35,6 +36,7 @@ fn hyberr(x: f64, y: f64) -> f64 {
     (x - y).abs()/(1. + y.abs())
 }
 
+/// Polishes roots of a function f(x) using secant method to specified error delta; returns error if iter_max exceeded
 pub fn secant_polish<F, E>(f: &F, x0: f64, iter_max: usize, delta: f64) -> Result<f64, ChebError> where F: Fn(f64) -> Result<f64, E>, E: std::error::Error + Send + Sync + 'static, {
 
     if x0.is_nan() {

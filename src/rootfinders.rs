@@ -45,14 +45,14 @@ const fn default_error_calc() -> ErrorCalc {
 /// Rootfinder configuration options
 ///
 /// # Fields  
-/// `epsilon`: relative or absolute error of Chebyshev interpolation; `f64`  
-/// `delta`: hybrid error of polishers; `f64`  
-/// `N0`: initial degree of Chebyshev interpolation; `usize`  
-/// `N_max`: maximum degree of Chebyshev interpolation; `usize`  
-/// `complex_threshold`: magnitude of root complexity to ignore; `f64`  
-/// `far_from_zero`: skips intervals on which all Chebyshev coefficients > this value  
-/// `interval_limit`: limit on interval size after subdivision  
-/// `error_calc`: `ErrCalc::Absolute` or `ErrorCalc::Relative `   
+///  - `epsilon`: relative or absolute error of Chebyshev interpolation; `f64`  
+///  - `delta`: hybrid error of polishers; `f64`  
+///  - `N0`: initial degree of Chebyshev interpolation; `usize`  
+///  - `N_max`: maximum degree of Chebyshev interpolation; `usize`  
+///  - `complex_threshold`: magnitude of root complexity to ignore; `f64`  
+///  - `far_from_zero`: skips intervals on which all Chebyshev coefficients > this value  
+///  - `interval_limit`: limit on interval size after subdivision  
+///  - `error_calc`: `ErrCalc::Absolute` or `ErrorCalc::Relative `   
 #[derive(Clone, Copy, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Config {
@@ -117,18 +117,18 @@ impl Config {
 /// via adaptive Chebyshev proxy rootfinding with automatic subdivision.  
 ///
 /// # Arguments  
-/// `f`: function to find roots of; must return `Result<f64, E>`  
-/// `intervals`: Vec of intervals [a_i, b_i], to, piecewise, find roots on; `Vec<(f64, f64)>`  
-/// `config`: `Config` struct that configures rootfinder.  
+///  - `f`: function to find roots of; must return `Result<f64, E>`  
+///  - `intervals`: Vec of intervals [a_i, b_i], to, piecewise, find roots on; `Vec<(f64, f64)>`  
+///  - `config`: `Config` struct that configures rootfinder.  
 /// 
 /// # Returns  
-/// `Result<roots, ChebError>`  
-/// `roots`: list of roots found, sorted. Roots are not deduplicated.  
+///  - `Result<roots, ChebError>`  
+///  - `roots`: list of roots found, sorted. Roots are not deduplicated.  
 /// 
 /// # Sources  
 /// Most complete, succinct description can be found in \[2\]. More discussion in \[1\].  
-/// \[1\] J Boyd, Solving Transcendental Equations, SIAM, 2014, doi: 10.1137/1.9781611973525  
-/// \[2\] J Boyd, Finding the Zeros of a Univariate Equation, SIAM Review, 2013, doi:10.1137/110838297  
+///  - \[1\] J Boyd, Solving Transcendental Equations, SIAM, 2014, doi: 10.1137/1.9781611973525  
+///  - \[2\] J Boyd, Finding the Zeros of a Univariate Equation, SIAM Review, 2013, doi:10.1137/110838297  
 pub fn find_roots<F, E>(f: &F, intervals: Vec<(f64, f64)>, config: Config) -> Result<Vec<f64>, ChebError> where F: Fn(f64) -> Result<f64, E>, E: std::error::Error + Send + Sync + 'static,  {
 
     let Config { epsilon, N0, N_max, complex_threshold, far_from_zero, interval_limit, error_calc, .. } = config;
@@ -234,18 +234,18 @@ pub fn find_roots<F, E>(f: &F, intervals: Vec<(f64, f64)>, config: Config) -> Re
 /// via adaptive Chebyshev proxy rootfinding with automatic subdivision  
 ///
 /// # Arguments  
-/// `f`: function to find roots of; must return `Result<f64, E>`  
-/// `intervals`: Vec of intervals [a_i, b_i], to, piecewise, find roots on; `Vec<(f64, f64)>`  
-/// `config`: `Config` struct that configures rootfinder.  
+///  - `f`: function to find roots of; must return `Result<f64, E>`  
+///  - `intervals`: Vec of intervals [a_i, b_i], to, piecewise, find roots on; `Vec<(f64, f64)>`  
+///  - `config`: `Config` struct that configures rootfinder.  
 /// 
 /// # Returns  
-/// `Result<roots, ChebError>`  
-/// `roots`: list of roots found, sorted. Roots are not deduplicated.  
+///  - `Result<roots, ChebError>`  
+///  - `roots`: list of roots found, sorted. Roots are not deduplicated.  
 /// 
 /// # Sources  
 /// Most complete, succinct description can be found in \[2\]. More discussion in \[1\].  
-/// \[1\] J Boyd, Solving Transcendental Equations, SIAM, 2014, doi: 10.1137/1.9781611973525  
-/// \[2\] J Boyd, Finding the Zeros of a Univariate Equation, SIAM Review, 2013, doi:10.1137/110838297  
+///  - \[1\] J Boyd, Solving Transcendental Equations, SIAM, 2014, doi: 10.1137/1.9781611973525  
+///  - \[2\] J Boyd, Finding the Zeros of a Univariate Equation, SIAM Review, 2013, doi:10.1137/110838297  
 pub fn find_roots_piecewise_with_newton_polishing<F, G, D, E>(g: &G, f: &F, df: &D, intervals: Vec<(f64, f64)>, config: Config) -> Result<Vec<f64>, ChebError>
     where F: Fn(f64) -> Result<f64, E>, G: Fn(f64) -> Result<f64, E>, D: Fn(f64) -> Result<f64, E>, E: std::error::Error + Send + Sync + 'static,    {
 
@@ -278,18 +278,18 @@ pub fn find_roots_piecewise_with_newton_polishing<F, G, D, E>(g: &G, f: &F, df: 
 /// via adaptive Chebyshev proxy rootfinding with automatic subdivision  
 ///
 /// # Arguments  
-/// `f`: function to find roots of; must return `Result<f64, E>`  
-/// `intervals`: Vec of intervals [a_i, b_i], to, piecewise, find roots on; `Vec<(f64, f64)>`  
-/// `config`: `Config` struct that configures rootfinder.  
+///  - `f`: function to find roots of; must return `Result<f64, E>`  
+///  - `intervals`: Vec of intervals [a_i, b_i], to, piecewise, find roots on; `Vec<(f64, f64)>`  
+///  - `config`: `Config` struct that configures rootfinder.  
 /// 
 /// # Returns  
-/// `Result<roots, ChebError>`  
-/// `roots`: list of roots found, sorted. Roots are not deduplicated.  
+///  - `Result<roots, ChebError>`  
+///  - `roots`: list of roots found, sorted. Roots are not deduplicated.  
 /// 
 /// # Sources  
 /// Most complete, succinct description can be found in \[2\]. More discussion in \[1\].  
-/// \[1\] J Boyd, Solving Transcendental Equations, SIAM, 2014, doi: 10.1137/1.9781611973525  
-/// \[2\] J Boyd, Finding the Zeros of a Univariate Equation, SIAM Review, 2013, doi:10.1137/110838297
+///  - \[1\] J Boyd, Solving Transcendental Equations, SIAM, 2014, doi: 10.1137/1.9781611973525  
+///  - \[2\] J Boyd, Finding the Zeros of a Univariate Equation, SIAM Review, 2013, doi:10.1137/110838297
 pub fn find_roots_with_secant_polishing<F, G, E>(g: &G, f: &F, a: f64, b: f64, config: Config) -> Result<Vec<f64>, ChebError> where F: Fn(f64) -> Result<f64, E>, G: Fn(f64) -> Result<f64, E>, E: std::error::Error + Send + Sync + 'static, {
 
     let Config {delta, ..} = config;
@@ -314,18 +314,18 @@ pub fn find_roots_with_secant_polishing<F, G, E>(g: &G, f: &F, a: f64, b: f64, c
 /// via adaptive Chebyshev proxy rootfinding with automatic subdivision  
 ///
 /// # Arguments  
-/// `f`: function to find roots of; must return `Result<f64, E>`  
-/// `intervals`: Vec of intervals [a_i, b_i], to, piecewise, find roots on; `Vec<(f64, f64)>`  
-/// `config`: `Config` struct that configures rootfinder.  
+///  - `f`: function to find roots of; must return `Result<f64, E>`  
+///  - `intervals`: Vec of intervals [a_i, b_i], to, piecewise, find roots on; `Vec<(f64, f64)>`  
+///  - `config`: `Config` struct that configures rootfinder.  
 /// 
 /// # Returns
-/// `Result<roots, ChebError>`  
-/// `roots`: list of roots found, sorted. Roots are not deduplicated.  
+///  - `Result<roots, ChebError>`  
+///  - `roots`: list of roots found, sorted. Roots are not deduplicated.  
 /// 
 /// # Sources  
 /// Most complete, succinct description can be found in \[2\]. More discussion in \[1\].
-/// \[1\] J Boyd, Solving Transcendental Equations, SIAM, 2014, doi: 10.1137/1.9781611973525  
-/// \[2\] J Boyd, Finding the Zeros of a Univariate Equation, SIAM Review, 2013, doi:10.1137/110838297
+///  - \[1\] J Boyd, Solving Transcendental Equations, SIAM, 2014, doi: 10.1137/1.9781611973525  
+///  - \[2\] J Boyd, Finding the Zeros of a Univariate Equation, SIAM Review, 2013, doi:10.1137/110838297
 pub fn find_roots_with_newton_polishing<F, G, D, E>(g: &G, f: &F, df: &D, a: f64, b: f64, config: Config) -> Result<Vec<f64>, ChebError>
     where F: Fn(f64) -> Result<f64, E>, G: Fn(f64) -> Result<f64, E>, D: Fn(f64) -> Result<f64, E>, E: std::error::Error + Send + Sync + 'static, {
 
@@ -352,18 +352,18 @@ pub fn find_roots_with_newton_polishing<F, G, D, E>(g: &G, f: &F, df: &D, a: f64
 /// via adaptive Chebyshev proxy rootfinding with automatic subdivision  
 ///
 /// # Arguments  
-/// `f`: function to find roots of; must return `Result<f64, E>`  
-/// `intervals`: Vec of intervals [a_i, b_i], to, piecewise, find roots on; `Vec<(f64, f64)>`  
-/// `config`: `Config` struct that configures rootfinder.  
+///  - `f`: function to find roots of; must return `Result<f64, E>`  
+///  - `intervals`: Vec of intervals [a_i, b_i], to, piecewise, find roots on; `Vec<(f64, f64)>`  
+///  - `config`: `Config` struct that configures rootfinder.  
 /// 
 /// # Returns  
-/// `Result<roots, ChebError>`  
-/// `roots`: list of roots found, sorted. Roots are not deduplicated.  
+///  - `Result<roots, ChebError>`  
+///  - `roots`: list of roots found, sorted. Roots are not deduplicated.  
 ///   
 /// # Sources  
 /// Most complete, succinct description can be found in \[2\]. More discussion in \[1\].  
-/// \[1\] J Boyd, Solving Transcendental Equations, SIAM, 2014, doi: 10.1137/1.9781611973525  
-/// \[2\] J Boyd, Finding the Zeros of a Univariate Equation, SIAM Review, 2013, doi:10.1137/110838297  
+///  - \[1\] J Boyd, Solving Transcendental Equations, SIAM, 2014, doi: 10.1137/1.9781611973525  
+///  - \[2\] J Boyd, Finding the Zeros of a Univariate Equation, SIAM Review, 2013, doi:10.1137/110838297  
 pub fn find_roots_piecewise_with_secant_polishing<F, G, E>(g: &G, f: &F, intervals: Vec<(f64, f64)>, config: Config) -> Result<Vec<f64>, ChebError>
     where F: Fn(f64) -> Result<f64, E>, G: Fn(f64) -> Result<f64, E>, E: std::error::Error + Send + Sync + 'static, {
 
@@ -390,11 +390,11 @@ pub fn find_roots_piecewise_with_secant_polishing<F, G, E>(g: &G, f: &F, interva
 /// Finds all roots of a polynomial via eigenvalues of the monomial Fiedler companion matrix
 /// 
 /// # Arguments  
-/// `c_j` list of coefficients in monomial basis - e.g., x^2 - 3.*x - 1.0 is \[1, -3, -1\]  
+///  - `c_j` list of coefficients in monomial basis - e.g., x^2 - 3.*x - 1.0 is \[1, -3, -1\]  
 ///
 /// # Returns  
-/// `Result<roots, ChebError>`  
-/// `roots`: list of roots found; `Vec<f64>`  
+///  - `Result<roots, ChebError>`  
+///  - `roots`: list of roots found; `Vec<f64>`  
 pub fn real_polynomial_roots(c_j: Vec<f64>, complex_threshold: f64) -> Result<Vec<f64>, ChebError> {
 
     let mut B_jk = monomial_fiedler_matrix(c_j.into());

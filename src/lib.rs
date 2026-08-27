@@ -13,9 +13,9 @@
 //! 
 //! rcpr also provides eigenvalue rootfinding for polynomials via the Fiedler companion matrix \[3\].
 //! 
-//! \[1\] J Boyd, Solving Transcendental Equations, SIAM, 2014, doi: 10.1137/1.9781611973525
-//! \[2\] J Boyd, Finding the Zeros of a Univariate Equation, SIAM Review, 2013, doi:10.1137/110838297
-//! \[3\] M. Fiedler, A note on companion matrices, Lin. Alg. and its App., 2003, doi:10.1016/S0024-3795(03)00548-2  
+//!  - \[1\] J Boyd, Solving Transcendental Equations, SIAM, 2014, doi: 10.1137/1.9781611973525
+//!  - \[2\] J Boyd, Finding the Zeros of a Univariate Equation, SIAM Review, 2013, doi:10.1137/110838297
+//!  - \[3\] M. Fiedler, A note on companion matrices, Lin. Alg. and its App., 2003, doi:10.1016/S0024-3795(03)00548-2  
 #![allow(non_snake_case)]
 const NEWTON_MAX_ITERATIONS: usize = 1000;
 const SECANT_MAX_ITERATIONS: usize = 1000;
@@ -35,7 +35,7 @@ pub mod python;
 ///
 /// # Source  
 /// A well known result; reproduced in \[3\] Eq. 1-2  
-/// \[3\] M. Fiedler, A note on companion matrices, Lin. Alg. and its App., 2003, doi:10.1016/S0024-3795(03)00548-2  
+///  - \[3\] M. Fiedler, A note on companion matrices, Lin. Alg. and its App., 2003, doi:10.1016/S0024-3795(03)00548-2  
 pub fn monomial_frobenius_matrix(c_j: DVector<f64>) -> DMatrix<f64> {
     let N: usize = c_j.len() - 1;
 
@@ -56,7 +56,7 @@ pub fn monomial_frobenius_matrix(c_j: DVector<f64>) -> DMatrix<f64> {
 ///
 /// # Source  
 /// \[3\] Example 2.4 and surrounding discussion  
-/// \[3\] M. Fiedler, A note on companion matrices, Lin. Alg. and its App., 2003, doi:10.1016/S0024-3795(03)00548-2  
+///  - \[3\] M. Fiedler, A note on companion matrices, Lin. Alg. and its App., 2003, doi:10.1016/S0024-3795(03)00548-2  
 
 fn monomial_fiedler_matrix(c_j: DVector<f64>) -> DMatrix<f64> {
     let N: usize = c_j.len() - 1;
@@ -93,7 +93,7 @@ fn monomial_fiedler_matrix(c_j: DVector<f64>) -> DMatrix<f64> {
 /// 
 /// # Source
 /// \[2\] A.1
-/// \[2\] J Boyd, Finding the Zeros of a Univariate Equation, SIAM Review, 2013, doi:10.1137/110838297
+///  - \[2\] J Boyd, Finding the Zeros of a Univariate Equation, SIAM Review, 2013, doi:10.1137/110838297
 pub fn lobatto_grid(a: f64, b: f64, N: usize) -> Vec<f64> {
     //Returns a Lobatto Grid on the interval [a, b] of order N.
     (0..=N).map(|k| (b - a)/2.*(PI*k as f64/N as f64).cos() + (b + a)/2.).collect::<Vec<f64>>()
