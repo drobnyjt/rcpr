@@ -13,10 +13,11 @@ pub mod polish;
 pub mod python;
 
 /// Constructs the monomial Frobenius companion matrix from monomial coefficients `c_j`
-/// Assumes the leading coefficient is 1. and c_n is degree-0
-/// # Source
-/// A well known result; reproduced in [3] Eq. 1-2
-/// [3] M. Fiedler, A note on companion matrices, Lin. Alg. and its App., 2003, doi:10.1016/S0024-3795(03)00548-2
+/// Assumes the leading coefficient is 1. and c_n is degree-0  
+///
+/// # Source  
+/// A well known result; reproduced in \[3\] Eq. 1-2  
+/// \[3\] M. Fiedler, A note on companion matrices, Lin. Alg. and its App., 2003, doi:10.1016/S0024-3795(03)00548-2  
 pub fn monomial_frobenius_matrix(c_j: DVector<f64>) -> DMatrix<f64> {
     let N: usize = c_j.len() - 1;
 
@@ -33,9 +34,12 @@ pub fn monomial_frobenius_matrix(c_j: DVector<f64>) -> DMatrix<f64> {
 }
 
 /// Constructs the monomial Fiedler companion matrix from monomial coefficients `c_j`
-/// Assumes the leading coefficient is 1. and c_n is degree-0
-/// # Source
-/// [3] Example 2.4 and surrounding discussion
+/// Assumes the leading coefficient is 1. and c_n is degree-0  
+///
+/// # Source  
+/// \[3\] Example 2.4 and surrounding discussion  
+/// \[3\] M. Fiedler, A note on companion matrices, Lin. Alg. and its App., 2003, doi:10.1016/S0024-3795(03)00548-2  
+
 fn monomial_fiedler_matrix(c_j: DVector<f64>) -> DMatrix<f64> {
     let N: usize = c_j.len() - 1;
 
@@ -67,10 +71,11 @@ fn monomial_fiedler_matrix(c_j: DVector<f64>) -> DMatrix<f64> {
     A_jk
 }
 
-/// Calculates the values of a Lobatto grid on [a, b] of degree N
+/// Calculates the values of a Lobatto grid on \[a, b\] of degree N
 /// 
 /// # Source
-/// [2] A.1
+/// \[2\] A.1
+/// \[2\] J Boyd, Finding the Zeros of a Univariate Equation, SIAM Review, 2013, doi:10.1137/110838297
 pub fn lobatto_grid(a: f64, b: f64, N: usize) -> Vec<f64> {
     //Returns a Lobatto Grid on the interval [a, b] of order N.
     (0..=N).map(|k| (b - a)/2.*(PI*k as f64/N as f64).cos() + (b + a)/2.).collect::<Vec<f64>>()

@@ -47,7 +47,7 @@ pub enum NumericProblem {
     Comparison
 }
 
-/// Performs adaptive Chebyshev interpolation of a function f(x), on the interval x=[a, b].
+/// Performs adaptive Chebyshev interpolation of a function f(x), on the interval x=\[a, b\].
 ///
 /// This function calculates the Chebyshev coefficients and associated error (absolute or relative) 
 /// of a single-valued, real, continuous function on the interval [a, b], for the smallest degree N
@@ -55,26 +55,26 @@ pub enum NumericProblem {
 /// or N_max is reached. 
 ///
 /// # Arguments
-/// `f`: the function f(x); must return Result<f64, E>
-/// `a`: left side of interval; f64 
-/// `b`: right side of interval; f64
+/// `f`: the function f(x); must return `Result<f64, E>`
+/// `a`: left side of interval; `f64` 
+/// `b`: right side of interval; `f64`
 /// `N0`: initial degree of Chebyshev approximant; usize
-/// `epsilon`: error tolerance; f64
+/// `epsilon`: error tolerance; `f64`
 /// `N_max`: maximum degree of Chebyshev approximant; usize
 /// `error_calc`: ErrorCalc::Absolute or ErrorCalc::Relative
 ///
 /// # Returns
 ///  `Ok((a_1, error, f_1))`
-/// `a_1`: Chebyshev coefficients; DVector<f64>
-/// `error`: absolute or relative error; f64
+/// `a_1`: Chebyshev coefficients; `DVector<f64>`
+/// `error`: absolute or relative error; `f64`
 /// `f_1`: function evaluations on the Lobatto grid used in interpolation
 ///
 /// # Sources
-/// This algorithm combines aspects of the inteprolation described in [1] §3.2 and [2] Eq. 4.1-4.3.
+/// This algorithm combines aspects of the inteprolation described in \[1\] §3.2 and \[2\] Eq. 4.1-4.3.
 /// It also offers the option to use the relative error instead of the absolute error;
 /// in the author's experience, this improves convergence for f(x) with large dynamic range.
-/// [1] J Boyd, Solving Transcendental Equations, SIAM, 2014, doi: 10.1137/1.9781611973525
-/// [2] J Boyd, Finding the Zeros of a Univariate Equation, SIAM Review, 2013, doi:10.1137/110838297
+/// \[1\] J Boyd, Solving Transcendental Equations, SIAM, 2014, doi: 10.1137/1.9781611973525
+/// \[2\] J Boyd, Finding the Zeros of a Univariate Equation, SIAM Review, 2013, doi:10.1137/110838297
 pub fn chebyshev_adaptive<F, E>(
     f: &F, a: f64, b: f64, N0: usize, epsilon: f64, N_max: usize, error_calc: ErrorCalc
     ) -> Result<(DVector<f64>, f64, DVector<f64>), ChebError>
@@ -117,20 +117,21 @@ pub fn chebyshev_adaptive<F, E>(
     }
 }
 
-/// Approximates a function f(x) on an interval [a, b] from its Chebyshev coefficients.
+/// Approximates a function f(x) on an interval \[a, b\] from its Chebyshev coefficients.
 /// 
 /// # Arguments
-/// `a_j`: Chebyshev coefficients; DVector<f64>
-/// `a`: left side of interval; f64
-/// `b`: right side of interval; f64
-/// `x`: the position at which to approximate f(x); f64
+/// `a_j`: Chebyshev coefficients; `DVector<f64>`
+/// `a`: left side of interval; `f64`
+/// `b`: right side of interval; `f64`
+/// `x`: the position at which to approximate f(x); `f64`
 ///
 /// # Returns
-/// `y`: approximate value of f(x); f64
+/// `y`: approximate value of f(x); `f64`
 ///
 /// # Sources
 ///
-/// [1] §B.2.1 Eqs. B.9-B.13 and Table B.2
+/// \[1\] §B.2.1 Eqs. B.9-B.13 and Table B.2
+/// \[1\] J Boyd, Solving Transcendental Equations, SIAM, 2014, doi: 10.1137/1.9781611973525
 pub fn chebyshev_approximate(a_j: DVector<f64>, a: f64, b: f64, x: f64) -> f64 {
     let N = a_j.len() - 1;
 
@@ -151,28 +152,30 @@ pub fn chebyshev_approximate(a_j: DVector<f64>, a: f64, b: f64, x: f64) -> f64 {
     (b0 - b3 + a_j[0]) / 2.0
 }
 
-/// Performs adaptive Chebyshev interpolation for f(x) on x=[a, b] with automatic subdivision.
+/// Performs adaptive Chebyshev interpolation for f(x) on x=\[a, b\] with automatic subdivision.
 ///
 /// # Arguments
-/// `f`: function to interpolate; must return Result<f64, E>.
-/// `intervals`: list of intervals on which to interpolate; Vec<(f64, f64)>
+/// `f`: function to interpolate; must return `Result<f64, E>.`
+/// `intervals`: list of intervals on which to interpolate; `Vec<(f64, f64)>`
 /// `N0`: initial degree of Chebyshev approximant on each interval
 /// `epsilon`: error tolerance
 /// `interval_limit`: limit on interval width
-/// `error_calc`: ErrorCalc::Absolute or ErrorCalc::Relative
+/// `error_calc`: `ErrorCalc::Absolute` or `ErrorCalc::Relative`
 /// 
 /// # Returns
 /// `Result<(intervals, coefficients, evaluations), ChebError>`
-/// `intervals`: intervals [a, b] found by automatic subdivision; Vec<(f64, f64)>
-/// `coefficients`: Chebyshev coefficients on each interval in `intervals`; DVector<f64>
+/// `intervals`: intervals \[a, b\] found by automatic subdivision; `Vec<(f64, f64)>`
+/// `coefficients`: Chebyshev coefficients on each interval in `intervals`; `DVector<f64>`
 /// `evaluations`: Evaluations of f(x) on the Lobatto grid for each interval - saved for reuse
 /// 
 /// # Sources
-/// Strategy described in [1] §2.9 and [2]
+/// Strategy described in \[1\] §2.9 and \[2\]
 ///
 /// # Errors
 /// Will return `ChebError::Numeric` if subdivided interval is smaller than specified
 /// limit or smaller than machine precision.
+/// \[1\] J Boyd, Solving Transcendental Equations, SIAM, 2014, doi: 10.1137/1.9781611973525
+/// \[2\] J Boyd, Finding the Zeros of a Univariate Equation, SIAM Review, 2013, doi:10.1137/110838297
 pub fn chebyshev_subdivide<F, E>(
     f: &F, intervals: Vec<(f64, f64)>, N0: usize, epsilon: f64, N_max: usize, interval_limit: f64, error_calc: ErrorCalc
     ) -> Result<(Vec<(f64, f64)>, Vec<DVector<f64>>, Vec<DVector<f64>>), ChebError> 
@@ -224,7 +227,7 @@ pub fn chebyshev_subdivide<F, E>(
     Ok((intervals_out, coefficients, evaluations))
 }
 
-/// Calculates the Chebyshev coefficients of a function f(x) on the interval [a, b]
+/// Calculates the Chebyshev coefficients of a function f(x) on the interval \[a, b\]
 fn chebyshev_coefficients_fast<F, E>(f: &F, a: f64, b: f64, N: usize, previous: DVector<f64>) -> Result<(DVector<f64>, DVector<f64>), ChebError>
 where F: Fn(f64) -> Result<f64, E>, E: std::error::Error + Send + Sync + 'static, {
     //Given a function f and an interval [a, b], returns a vector of the Chebyshev interpolation
@@ -253,7 +256,7 @@ where F: Fn(f64) -> Result<f64, E>, E: std::error::Error + Send + Sync + 'static
 }
 
 /// Given a vector of Chebyshev coefficients [a_0, ... a_N], return [a_0 ... a_i] such that a_i is the
-/// first element > estimated truncation error. 
+/// first element > estimated truncation error.
 pub fn truncate_chebyshev_coefficients(a_j: DVector<f64>) -> Result<DVector<f64>, ChebError> {
 
     let truncation_error = (a_j.len() - 1) as f64 * f64::EPSILON * a_j.iter()
@@ -279,7 +282,9 @@ pub fn truncate_chebyshev_coefficients(a_j: DVector<f64>) -> Result<DVector<f64>
 }
 
 /// Constructs the Chebyshev-Frobenius Companion Matrix from Chebyshev coefficients a_j.
-/// [2] B.2-3
+/// \[2\] B.2-3
+/// \[1\] J Boyd, Solving Transcendental Equations, SIAM, 2014, doi: 10.1137/1.9781611973525
+/// \[2\] J Boyd, Finding the Zeros of a Univariate Equation, SIAM Review, 2013, doi:10.1137/110838297
 pub fn chebyshev_frobenius_matrix(a_j: DVector<f64>) -> Result<DMatrix<f64>, ChebError> {
 
     let N: usize = a_j.len() - 1;
@@ -334,7 +339,9 @@ fn delta(j: i32, k: i32) -> f64 {
 
 #[concurrent_cached]
 /// Chebyshev interpolation matrix of size (N + 1).
-/// [2] A.3
+/// \[2\] A.3
+/// \[1\] J Boyd, Solving Transcendental Equations, SIAM, 2014, doi: 10.1137/1.9781611973525
+/// \[2\] J Boyd, Finding the Zeros of a Univariate Equation, SIAM Review, 2013, doi:10.1137/110838297
 fn interpolation_matrix(N: usize) -> DMatrix<f64> {
 
     let mut I_jk: DMatrix<f64> = DMatrix::zeros(N + 1, N + 1);
