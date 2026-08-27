@@ -71,7 +71,7 @@ pub struct Config {
     pub complex_threshold: f64,
     #[serde(default = "default_float_max")]
     pub far_from_zero: f64, 
-    #[serde(default = "default_float_zero")]
+    #[serde(default = "default_float_1_10000")]
     pub interval_limit: f64,
     #[serde(default = "default_error_calc")]
     pub error_calc: ErrorCalc
