@@ -23,6 +23,7 @@ const SECANT_MAX_ITERATIONS: usize = 1000;
 use nalgebra::{DMatrix, DVector};
 use nalgebra::linalg::balancing::balance_parlett_reinsch;
 use std::f64::consts::PI;
+use cached::*;
 
 pub mod chebyshev;
 pub mod rootfinders;
@@ -94,9 +95,7 @@ fn monomial_fiedler_matrix(c_j: DVector<f64>) -> DMatrix<f64> {
 /// \[2\] A.1
 ///  - \[2\] J Boyd, Finding the Zeros of a Univariate Equation, SIAM Review, 2013, doi:10.1137/110838297
 pub fn lobatto_grid(a: f64, b: f64, N: usize) -> Vec<f64> {
-    //Returns a Lobatto Grid on the interval [a, b] of order N.
     (0..=N).map(|k| (b - a)/2.*(PI*k as f64/N as f64).cos() + (b + a)/2.).collect::<Vec<f64>>()
 }
-
 #[cfg(test)]
 mod tests;

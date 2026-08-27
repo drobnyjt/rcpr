@@ -3,12 +3,9 @@ pub use super::*;
 use crate::chebyshev::*;//{chebyshev_subdivide, chebyshev_frobenius_matrix, truncate_chebyshev_coefficients, ErrorCalc, ChebError};
 use crate::polish::*;
 use serde::*;
-use nalgebra::Schur;
 
 const DEFAULT_EPSILON: f64 = 1e-12;
 const DEFAULT_DELTA: f64 = 1e-13;
-const SCHUR_DECOMPOSITION_EPSILON: f64 = 1e-16;
-const SCHUR_DECOMPOSITION_MAX_ITERATIONS: usize = 512*512;
 
 const fn default_epsilon() -> f64 {
     DEFAULT_EPSILON
@@ -198,31 +195,16 @@ pub fn find_roots<F, E>(f: &F, intervals: Vec<(f64, f64)>, config: Config) -> Re
         //https://doi.org/10.1007/BF02165404
         balance_parlett_reinsch(&mut A);
 
-        // I mistakenly removed this because Issue #611 in nalgebra,
-        // which requires this hack to prevent infinite loops, was resolved,
-        // but the fix is not actually implemented in any release. Hence, back 
-        // in it goes.
-        if let Some(schur_matrix) = Schur::try_new(
-            A,
-            SCHUR_DECOMPOSITION_EPSILON,
-            SCHUR_DECOMPOSITION_MAX_ITERATIONS
-        ) {
-            let eigenvalues = schur_matrix.complex_eigenvalues();
-            for eigenvalue in eigenvalues.iter() {
-                // N*machine epsilon is a guess of the error in [-1, 1] coords
-                if (eigenvalue.im.abs() <= complex_threshold) && (eigenvalue.re.abs() < 1.0 + config.epsilon) {
-                    if (index < intervals.len() - 1) && (1.0 - eigenvalue.re) <= f64::EPSILON {
-                        // if not right-most interval, attempt to drop eigenvalues on right boundary
-                        // this check needs to be more strict than above or it discards real roots
-                        continue
-                    }
-                    roots.push(eigenvalue.re*(i.1 - i.0)/2. + (i.1 + i.0)/2.)
+        let eigenvalues = A.complex_eigenvalues();
+
+        for eigenvalue in eigenvalues.iter() {
+            if (eigenvalue.im.abs() <= complex_threshold) && (eigenvalue.re.abs() < 1.0 + config.epsilon) {
+                if (index < intervals.len() - 1) && (1.0 - eigenvalue.re) <= f64::EPSILON {
+                    // if not right-most interval, attempt to drop eigenvalues on right boundary
+                    // this check needs to be more strict than above or it discards real roots
+                    continue
                 }
-            }
-        } else {
-            let subroots = find_roots(f, vec![(i.0, i.0 + (i.1 - i.0)/2.), (i.0 + (i.1 - i.0)/2., i.1)], config)?;
-            for root in subroots {
-                roots.push(root)
+                roots.push(eigenvalue.re*(i.1 - i.0)/2. + (i.1 + i.0)/2.)
             }
         }
     }
