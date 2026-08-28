@@ -25,7 +25,24 @@ fn q(x: f64) -> Result<f64, std::convert::Infallible> {
     Ok((x.powf(x) - x.powi(2))*(x - 3.).powi(3))
 }
 
+#[test]
+fn test_frobenius_matrix_inputs() {
+    // empty coefficients can't be used to make a matrix
+    let a = DVector::from(vec![]);
+    assert!(chebyshev_frobenius_matrix(a).is_err());
 
+    // constant functions don't have a companion matrix - no roots
+    let b = DVector::from(vec![1.0]);
+    assert!(chebyshev_frobenius_matrix(b).is_err());
+
+    // trailing zeros should cause divide by zero error
+    let c = DVector::from(vec![1.0, 2.0, 0.0]);
+    assert!(chebyshev_frobenius_matrix(c).is_err());
+
+    // minimum Ok example is two nonzero elements
+    let d = DVector::from(vec![1.0, 2.0]);
+    assert!(chebyshev_frobenius_matrix(d).is_ok());
+}
 
 #[test]
 fn test_chebyshev_adaptive_and_term_truncation() {
@@ -55,6 +72,22 @@ fn test_chebyshev_adaptive_and_term_truncation() {
     assert!(a_2.clone().len() < a_1.len());
     // a_2 after truncation should be as long as degree of f + 1 if f is polynomial
     assert!(a_2.len() == 5);
+}
+
+#[test]
+fn test_chebyshev_subdivision() {
+
+    let f = |x: f64| -> Result<f64, std::convert::Infallible> { Ok(((x - 0.5)/1e-6).tanh())};
+    let intervals = vec![(0.0, 1.0)];
+    let N0 = 1;
+    let N_max = 2048;
+    let epsilon = 1e-5;
+    let interval_limit = 1e-10;
+    let error_calc = ErrorCalc::Relative;
+
+    let (output_intervals, coefficients, evaluations) = chebyshev_subdivide(&f, intervals, N0, epsilon, N_max, interval_limit, error_calc).unwrap();
+    assert!(output_intervals.len() > 1);
+
 }
 
 #[test]

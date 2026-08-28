@@ -109,11 +109,19 @@ pub fn chebyshev_adaptive<F, E>(
         let (a_1, f_1) = chebyshev_coefficients_fast(f, a, b, N1, f_0)?;
 
         // Absolute error is approximated as the sum of the difference in Chebyshev coefficients 
-        // between two iterations, delta_2N ~ |fN(xk) - f2N(xk)|
+        // between two iterations; absolute error = |a_1 - a_0| ~ |fN(xk1) - f2N(xk2)|
         // Since the N0..2N0 terms of fN are zero, this sum can be split into two pieces
         // Note that for degree N, there are N + 1 coefficients
-        let absolute_error = a_0.iter().zip(&a_1).map(|(a_i, a_j)| (a_i - a_j).abs()).sum::<f64>() + a_1.iter().skip(a_0.len()).map(|&a_j| a_j.abs()).sum::<f64>();
-
+        let mut absolute_error = a_0.iter().zip(&a_1).map(|(a_i, a_j)| (a_i - a_j).abs()).sum::<f64>() + a_1.iter().skip(a_0.len()).map(|&a_j| a_j.abs()).sum::<f64>();
+        // For pathological functions at low N, e.g., a step function for N=1, absolute error can be estimated as zero
+        // In this case, I calculate explicitly the error between the interpolant and f at a 2N Lobatto grid point not on the N grid
+        // This is added to the absolute error calculation at that point.
+        if absolute_error == 0.0 {
+            let x_off_grid = ((b - a)/2.*(PI/N1 as f64).cos() + (b + a)/2. + b)/2.;
+            let f_off_grid = f(x_off_grid).map_err(|e| ChebError::Function(format!("Failed to calculate f(x): {}", e)))?;
+            let g_off_grid = chebyshev_approximate(a_0, a, b, x_off_grid);
+            absolute_error += (g_off_grid - f_off_grid).abs();
+        }
         // Relative error is normalized by the maximum magnitude of the function evaluated on the Lobatto grid
         // If the maximum is exactly zero, which can be the case for f(x) ~ 0 on some interval, normalization is skipped
         let error = match error_calc {
@@ -228,7 +236,6 @@ pub fn chebyshev_subdivide<F, E>(
             intervals_out.push(interval);
             coefficients.push(a_0);
             evaluations.push(f_0);
-
 
         } else {         
             // if N_max is exceeded, current interval is split in two and chebyshev_subdivide is called instead,
