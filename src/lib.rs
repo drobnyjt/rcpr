@@ -25,6 +25,8 @@ use nalgebra::linalg::balancing::balance_parlett_reinsch;
 use std::f64::consts::PI;
 use cached::*;
 
+use crate::chebyshev::{ChebError, InputProblem};
+
 pub mod chebyshev;
 pub mod rootfinders;
 pub mod polish;
@@ -37,7 +39,12 @@ pub mod python;
 /// # Source  
 /// A well known result; reproduced in \[3\] Eq. 1-2  
 ///  - \[3\] M. Fiedler, A note on companion matrices, Lin. Alg. and its App., 2003, doi:10.1016/S0024-3795(03)00548-2  
-pub fn monomial_frobenius_matrix(c_j: DVector<f64>) -> DMatrix<f64> {
+pub fn monomial_frobenius_matrix(c_j: DVector<f64>) -> Result<DMatrix<f64>, ChebError> {
+
+    if c_j.is_empty() {
+        return Err(ChebError::Input(InputProblem::EmptyCoefficients))
+    }
+
     let N: usize = c_j.len() - 1;
 
     let mut A_jk: DMatrix<f64> = DMatrix::zeros(N, N);
@@ -49,7 +56,7 @@ pub fn monomial_frobenius_matrix(c_j: DVector<f64>) -> DMatrix<f64> {
     for k in 0..N {
         A_jk[(k, N - 1)] = -c_j[N - k]
     }
-    A_jk
+    Ok(A_jk)
 }
 
 /// Constructs the monomial Fiedler companion matrix from monomial coefficients `c_j`
@@ -58,7 +65,12 @@ pub fn monomial_frobenius_matrix(c_j: DVector<f64>) -> DMatrix<f64> {
 /// # Source  
 /// \[3\] Example 2.4 and surrounding discussion  
 ///  - \[3\] M. Fiedler, A note on companion matrices, Lin. Alg. and its App., 2003, doi:10.1016/S0024-3795(03)00548-2  
-fn monomial_fiedler_matrix(c_j: DVector<f64>) -> DMatrix<f64> {
+fn monomial_fiedler_matrix(c_j: DVector<f64>) -> Result<DMatrix<f64>, ChebError> {
+
+    if c_j.is_empty() {
+        return Err(ChebError::Input(InputProblem::EmptyCoefficients))
+    }
+
     let N: usize = c_j.len() - 1;
 
     let mut A_jk: DMatrix<f64> = DMatrix::zeros(N, N);
@@ -86,7 +98,7 @@ fn monomial_fiedler_matrix(c_j: DVector<f64>) -> DMatrix<f64> {
     A_jk[(0, 0)] = -c_j[1];
     A_jk[(1, 0)] = 1.;
 
-    A_jk
+    Ok(A_jk)
 }
 
 #[cfg(test)]

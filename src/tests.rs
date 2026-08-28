@@ -45,6 +45,22 @@ fn test_frobenius_matrix_inputs() {
 }
 
 #[test]
+fn test_approximate() {
+    let a = -5.0;
+    let b = 5.0;
+    let f = |x: f64| -> Result<f64, std::convert::Infallible> { Ok(x.powi(4) + 4.2*x.powi(3) - 1.8*x.powi(2) - 13.*x + 9.6) };
+    let N0 = 2;
+    let epsilon = 1e-6;
+    let N_max = 512;
+    let error_calc = ErrorCalc::Absolute;
+    let (a_1, error, _) = chebyshev_adaptive(&f, a, b, N0, epsilon, N_max, error_calc).unwrap();    
+
+    for x_test in vec![-5.0, -4.0, -3.0, -2.0, -1.0, 1.0, 2.0, 3.0, 4.0, 5.0].into_iter() {
+        assert!((chebyshev_approximate(a_1.clone(), a, b, x_test) - f(x_test).unwrap() ).abs() < epsilon);
+    }
+}
+
+#[test]
 fn test_chebyshev_adaptive_and_term_truncation() {
     let a = -5.0;
     let b = 5.0;
@@ -59,6 +75,7 @@ fn test_chebyshev_adaptive_and_term_truncation() {
     let fx = f(x1).unwrap();
     // Error between f(x) and ~f(x) must be < epsilon 
     assert!((fx_approx - fx).abs() < epsilon);
+    // Output error must be less than input error
     assert!(error < epsilon);
 
     for a in a_1.clone().iter() {
