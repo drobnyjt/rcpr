@@ -4,8 +4,8 @@ use crate::chebyshev::*;//{chebyshev_subdivide, chebyshev_frobenius_matrix, trun
 use crate::polish::*;
 use serde::*;
 
-const DEFAULT_EPSILON: f64 = 1e-12;
-const DEFAULT_DELTA: f64 = 1e-13;
+const DEFAULT_EPSILON: f64 = 1e-6;
+const DEFAULT_DELTA: f64 = 1e-9;
 
 const fn default_epsilon() -> f64 {
     DEFAULT_EPSILON
@@ -372,7 +372,7 @@ pub fn find_roots_piecewise_with_secant_polishing<F, G, E>(g: &G, f: &F, interva
 /// Finds all roots of a polynomial via eigenvalues of the monomial Fiedler companion matrix
 /// 
 /// # Arguments  
-///  - `c_j` list of coefficients in monomial basis with leading coefficient 1 - e.g., x^2 - 3.*x - 1.0 is \[-3, -1\]  
+///  - `c_j` list of coefficients in monomial basis; e.g., x^2 - 3.*x - 1.0 is \[1., -3, -1\]  
 ///
 /// # Returns  
 ///  - `Result<roots, ChebError>`  
@@ -383,7 +383,10 @@ pub fn real_polynomial_roots(c_j: Vec<f64>, complex_threshold: f64) -> Result<Ve
         return Err(ChebError::Input(InputProblem::Degree1Invalid))
     }
 
-    let mut B_jk = monomial_fiedler_matrix(c_j.into());
+    let leading_coefficient = c_j[0];
+    let scaled_c_j = c_j.iter().map(|&x| x/leading_coefficient).collect::<Vec<f64>>();
+
+    let mut B_jk = monomial_fiedler_matrix(scaled_c_j.into());
 
     balance_parlett_reinsch(&mut B_jk);
 

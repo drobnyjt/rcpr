@@ -103,13 +103,19 @@ fn test_rootfinding_with_secant() {
 fn test_polynom() {
 
     let q = |x: f64| -> Result<f64, std::convert::Infallible> { Ok(x.powi(4) + 4.2*x.powi(3) - 1.8*x.powi(2) - 13.*x + 9.6)};
-    let dq = |x: f64| -> Result<f64, std::convert::Infallible> { Ok(4.*x.powi(3) + 3.*4.2*x.powi(2) - 2.*1.8*x - 13.)};
+    let dq = |x: f64| -> Result<f64, std::convert::Infallible> { Ok(4.*x*(x*(x + 3.15) - 0.9) - 13.)};
 
-    let c_j: Vec<f64> = vec![1., 5.2, 3.4, -9.6];
+    let c_j: Vec<f64> = vec![1., 4.2, -1.8, -13., 9.6];
 
-    let mut roots = real_polynomial_roots(c_j.clone(), f64::EPSILON).unwrap();
+    let mut roots = real_polynomial_roots(c_j.clone(), 1e-8).unwrap();
 
-    let true_roots = vec![-3.2, -3., 1.];
+    for root in roots.iter() {
+        println!("{}", root)
+    }
+
+    let true_roots = vec![-3.2, -3., 1., 1.];
+
+    assert!(roots.len() == true_roots.len());
 
     roots.sort_by(|a, b| a.total_cmp(b));
 
