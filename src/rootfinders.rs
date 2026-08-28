@@ -351,6 +351,10 @@ pub fn find_roots_piecewise_with_secant_polishing<F, G, E>(g: &G, f: &F, interva
 
     let Config {delta, ..} = config;
 
+    if intervals.is_empty() {
+        return Err(ChebError::Input(InputProblem::EmptyIntervals));
+    }
+
     let a = intervals[0].0;
     let b = intervals[intervals.len() - 1].1;
 

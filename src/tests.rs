@@ -25,6 +25,38 @@ fn q(x: f64) -> Result<f64, std::convert::Infallible> {
     Ok((x.powf(x) - x.powi(2))*(x - 3.).powi(3))
 }
 
+
+
+#[test]
+fn test_chebyshev_adaptive_and_term_truncation() {
+    let a = -5.0;
+    let b = 5.0;
+    let f = |x: f64| -> Result<f64, std::convert::Infallible> { Ok(x.powi(4) + 4.2*x.powi(3) - 1.8*x.powi(2) - 13.*x + 9.6) };
+    let N0 = 2;
+    let epsilon = 1e-6;
+    let N_max = 512;
+    let error_calc = ErrorCalc::Absolute;
+    let (a_1, error, _) = chebyshev_adaptive(&f, a, b, N0, epsilon, N_max, error_calc).unwrap();    
+    let x1 = 0.25;
+    let fx_approx = chebyshev_approximate(a_1.clone(), a, b, x1);
+    let fx = f(x1).unwrap();
+    // Error between f(x) and ~f(x) must be < epsilon 
+    assert!((fx_approx - fx).abs() < epsilon);
+    assert!(error < epsilon);
+
+    for a in a_1.clone().iter() {
+        println!("{}", a);
+    }
+    let a_2 = truncate_chebyshev_coefficients(a_1.clone()).unwrap();
+        for a in a_2.clone().iter() {
+        println!("{}", a);
+    }
+    // truncation should remove terms in this case - doubling degree goes higher than degree of f
+    assert!(a_2.clone().len() < a_1.len());
+    // a_2 after truncation should be as long as degree of f + 1 if f is polynomial
+    assert!(a_2.len() == 5);
+}
+
 #[test]
 fn test_lobatto_grid() {
     let a = 0.0;
@@ -32,13 +64,17 @@ fn test_lobatto_grid() {
     let N = 5;
     let grid = lobatto_grid(a, b, N).unwrap();
 
+    // Lobatto grid has N + 1 points
     assert!(grid.len() == N + 1);
 
+    // Lobatto grid cannot be constructed with an invalid interval
     assert!(lobatto_grid(0.0, 0.0, N).is_err());
     assert!(lobatto_grid(0.0, -1.0, N).is_err());
 
+    // Lobatto grid cannot be degree 0 or lower
     assert!(lobatto_grid(a, b, 0).is_err());
 
+    // Lobatto grid endpoints should be interval endpoints
     assert!(grid.clone()[0] == b);
     assert!(*grid.last().unwrap() == a);
 }

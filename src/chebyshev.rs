@@ -38,6 +38,7 @@ pub enum InputProblem {
     FarFromZeroInvalid(f64),
     PolynomialDegreeInvalid,
     GridSizeInvalid,
+    EmptyIntervals,
 }
 
 #[derive(Debug)]
@@ -83,6 +84,19 @@ pub fn chebyshev_adaptive<F, E>(
         F: Fn(f64) -> Result<f64, E>,
         E: std::error::Error + Send + Sync + 'static, 
     {
+
+    if epsilon <= 0.0 {
+        return Err(ChebError::Input(InputProblem::EpsilonInvalid(epsilon)))
+    }
+
+    if N0 == 0 {
+        return Err(ChebError::Input(InputProblem::InitialDegreeInvalid(N0)))
+    }
+
+    if N_max == 0 || N_max < N0 {
+        return Err(ChebError::Input(InputProblem::MaxDegreeInvalid(N_max)))
+    }
+
     //Adaptive Chebyshev approximation of the function f on the interval [a, b], which starts from degree N0 and doubles
     //the degree each iteration until the error is less than epsilon, starting with order N0 returning the Chebyshev coefficients a if
     //convergence is reached before the degree exceeds N_max.
@@ -93,9 +107,14 @@ pub fn chebyshev_adaptive<F, E>(
         let N1 = 2*N0;
         let (a_1, f_1) = chebyshev_coefficients_fast(f, a, b, N1, f_0)?;
 
-        //Error is defined as sum(delta) where delta_2N = fN(x) - f2N(x)
-        //Since the N0..2N0 terms of fN are zero, this sum can be split into two pieces
-        let absolute_error = a_0.iter().enumerate().map(|(i, a)| (a - a_1[i]).abs()).sum::<f64>() + a_1.iter().enumerate().filter(|(i, _)| i >= &(N0 + 1)).map(|(_, a)| a.abs()).sum::<f64>();
+        // Absolute error is approximated as the sum of the difference in Chebyshev coefficients 
+        // between two iterations, delta_2N ~ |fN(xk) - f2N(xk)|
+        // Since the N0..2N0 terms of fN are zero, this sum can be split into two pieces
+        // Note that for degree N, there are N + 1 coefficients
+        let absolute_error = a_0.iter().zip(&a_1).map(|(a_i, a_j)| (a_i - a_j).abs()).sum::<f64>() + a_1.iter().skip(a_0.len()).map(|&a_j| a_j.abs()).sum::<f64>();
+
+        // Relative error is normalized by the maximum magnitude of the function evaluated on the Lobatto grid
+        // If the maximum is exactly zero, which can be the case for f(x) ~ 0 on some interval, normalization is skipped
         let error = match error_calc {
             ErrorCalc::Absolute => absolute_error,
             ErrorCalc::Relative => {
@@ -108,6 +127,7 @@ pub fn chebyshev_adaptive<F, E>(
             }
         };
 
+        // Stopping condition checks if next iteration would exceed N_max
         if (error < epsilon) || (2*N1 > N_max) {
             return Ok((a_1, error, f_1))
         };
@@ -131,26 +151,26 @@ pub fn chebyshev_adaptive<F, E>(
 ///
 /// # Sources
 ///
-///  - \[1\] §B.2.1 Eqs. B.9-B.13 and Table B.2
+///  - \[1\] §B.2.1 Eqs. B.9-B.13 and Table B.2 (Clenshaw-Curtis recurrence relation)
 ///  - \[1\] J Boyd, Solving Transcendental Equations, SIAM, 2014, doi: 10.1137/1.9781611973525
 pub fn chebyshev_approximate(a_j: DVector<f64>, a: f64, b: f64, x: f64) -> f64 {
     let N = a_j.len() - 1;
 
-    let xi = (2.0 * x - (b + a)) / (b - a);
-    let mut b0 = 0.0;
-    let mut b1 = 0.0;
-    let mut b2 = 0.0;
-    let mut b3 = 0.0;
+    let xi = (2. * x - (b + a)) / (b - a);
+    let mut b0 = 0.;
+    let mut b1 = 0.;
+    let mut b2 = 0.;
+    let mut b3 = 0.;
 
     // N+1 iterations, consuming a_N, a_{N-1}, ..., a_0
     for i in 1..=N + 1 {
-        b0 = 2.0 * xi * b1 - b2 + a_j[N + 1 - i];
+        b0 = 2. * xi * b1 - b2 + a_j[N + 1 - i];
         b3 = b2;
         b2 = b1;
         b1 = b0;
     }
 
-    (b0 - b3 + a_j[0]) / 2.0
+    (b0 - b3 + a_j[0]) / 2.
 }
 
 /// Performs adaptive Chebyshev interpolation for f(x) on x=\[a, b\] with automatic subdivision.
@@ -195,18 +215,21 @@ pub fn chebyshev_subdivide<F, E>(
             return Err(ChebError::Numeric(NumericProblem::IntervalLimitReached((interval.0, interval.1))))
         }
 
+
         let a = interval.0;
         let b = interval.1;
-
         let (a_0, error, f_0) = chebyshev_adaptive(f, a, b, N0, epsilon, N_max, error_calc)?;
         
+        // chebyshev_adaptive will double the Chebyshev degree N until the estimated error is below epsilon
         if error < epsilon {
             intervals_out.push(interval);
             coefficients.push(a_0);
             evaluations.push(f_0);
 
-        } else {
 
+        } else {         
+            // if N_max is exceeded, the interval is split in two and chebyshev subdivide is called instead
+            // which will continue with subdivision until all intervals reach error < epsilon 
             let mid = a + (b - a)/2.;
             if !(a < mid && mid < b) {
                 return Err(ChebError::Numeric(NumericProblem::IntervalTooSmall((a, b))))
