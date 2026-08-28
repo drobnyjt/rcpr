@@ -102,7 +102,7 @@ Returns:
 
 Args:
 
-* `c: Vec<f64>` the coefficients of the polynomial in monomial form, with the first coefficient being 1, starting with degree n, n-1, ... 1, 0. For example, for the polynomial `P(x) = x^2 + 5x + 2`, `c = vec![1., 5., 2.]`
+* `c: Vec<f64>` the coefficients of the polynomial in monomial form, starting with degree n, n-1, ... 1, 0. For example, for the polynomial `P(x) = x^2 + 5x + 2`, `c = vec![1., 5., 2.]`
 * `complex_threshold: f64`: the threshold of the imaginary part of roots that are near-real that is tolerated.
 
 Returns:
