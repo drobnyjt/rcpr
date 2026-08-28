@@ -1,0 +1,41 @@
+name: Code Coverage
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+env:
+  CARGO_TERM_COLOR: always
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust with llvm-tools
+        run: rustup component add llvm-tools-preview
+
+      - name: Install cargo-llvm-cov
+        run: cargo install cargo-llvm-cov --locked
+
+      - name: Run coverage tool
+        id: coverage
+        run: |
+          cargo llvm-cov --json --summary-only > coverage.json
+          pct=$(jq '.data[0].totals.lines.percent' coverage.json)
+          echo "percentage=$pct" >> "$GITHUB_OUTPUT"
+
+      - name: Generate coverage badge
+        if: github.event_name == 'push'
+        uses: ozankasikci/rust-test-coverage-badge@v1
+        with:
+          coverage: ${{ steps.coverage.outputs.percentage }}
+          output: assets/coverage.svg
+          commit: true
