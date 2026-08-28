@@ -264,9 +264,9 @@ where F: Fn(f64) -> Result<f64, E>, E: std::error::Error + Send + Sync + 'static
 
     // If previous function evaluation at N_prev = N / 2 is available, it can be used to 
     // speed up the calculation of Chebyshev coefficients.
-    // This is because the double-degree Lobatto grids include the previuos ones;
+    // This is because the double-degree Lobatto grids include the previous ones;
     // e.g., every element x_2[2i] = x_1[i]
-    // If not available, calculate all here
+    // If not available, calculate all here - otherwise, proceed with re-use
     if previous.is_empty() {
         let f_xk = DVector::<f64>::from(
             xk.iter()
