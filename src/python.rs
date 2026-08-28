@@ -39,7 +39,7 @@ mod pyacpr {
 ///  - `N`: degree  
 ///
 /// # Returns  
-///  - `x_k`: list of gridpoints x_k  
+///  - `x_k`: list of gridpoints x_k
 #[cfg(feature = "python")]
 #[pyfunction]
 pub fn lobatto_grid_py<'py>(_python: Python<'py>, a: f64, b: f64, N: usize) -> PyResult<Vec<f64>> {

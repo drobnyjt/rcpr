@@ -25,6 +25,41 @@ fn q(x: f64) -> Result<f64, std::convert::Infallible> {
     Ok((x.powf(x) - x.powi(2))*(x - 3.).powi(3))
 }
 
+fn failing(_: f64) -> Result<f64, ChebError> {
+    Err(ChebError::Function(format!("Failing function.")))
+}
+
+#[test]
+fn test_newton_polish() {
+    let f = |x: f64| -> Result<f64, std::convert::Infallible> { Ok(4.*(x - 3.)*(x - 2.)) };
+    let df = |x: f64| -> Result<f64, std::convert::Infallible> { Ok(8.*x - 20.0) };
+
+    let x0 = 3.1;
+    let result = newton_polish(&f, &df, x0, 1000, 1e-12);
+    assert!(result.is_ok());
+    assert!((result.unwrap() - 3.0) < 1e-12);
+    assert!(newton_polish(&failing, &failing, x0, 1000, 1e-12).is_err());
+}
+
+#[test]
+fn test_secant_polish() {
+    let f = |x: f64| -> Result<f64, std::convert::Infallible> { Ok(4.*(x - 3.)*(x - 2.)) };
+
+    let x0 = 3.1;
+    let result = secant_polish(&f, x0, 1000, 1e-12);
+
+    // Ensure doesn't fail and is correct
+    assert!(result.is_ok());
+    assert!((result.unwrap() - 3.0) < 1e-12);
+    // Ensure failing f(x) propagates
+    assert!(secant_polish(&failing, x0, 1000, 1e-12).is_err());
+    // Ensure bad iter_max errors
+    assert!(secant_polish(&f, x0, 0, 1e-12).is_err());
+    // Ensure bad delta errors
+    assert!(secant_polish(&f, x0, 1000, -1.0).is_err());
+
+}
+
 #[test]
 fn test_frobenius_matrix_inputs() {
     // empty coefficients can't be used to make a matrix
@@ -42,6 +77,27 @@ fn test_frobenius_matrix_inputs() {
     // minimum Ok example is two nonzero elements
     let d = DVector::from(vec![1.0, 2.0]);
     assert!(chebyshev_frobenius_matrix(d).is_ok());
+
+    let e = DVector::from(vec![1.0, 2.0, 3.0, 4.0, 5.0]);
+    assert!(chebyshev_frobenius_matrix(e).is_ok());
+}
+
+#[test]
+fn test_monomial_frobenius_matrix_inputs() {
+    // empty coefficients can't be used to make a matrix
+    let a = DVector::from(vec![]);
+    assert!(monomial_frobenius_matrix(a).is_err());
+
+    // constant functions don't have a companion matrix - no roots
+    let b = DVector::from(vec![1.0]);
+    assert!(monomial_frobenius_matrix(b).is_err());
+
+    // minimum Ok example is two nonzero elements
+    let d = DVector::from(vec![1.0, 2.0]);
+    assert!(monomial_frobenius_matrix(d).is_ok());
+
+    let e = DVector::from(vec![1.0, 2.0, 3.0, 4.0, 5.0]);
+    assert!(monomial_frobenius_matrix(e).is_ok());
 }
 
 #[test]
@@ -58,6 +114,7 @@ fn test_approximate() {
     for x_test in vec![-5.0, -4.0, -3.0, -2.0, -1.0, 1.0, 2.0, 3.0, 4.0, 5.0].into_iter() {
         assert!((chebyshev_approximate(a_1.clone(), a, b, x_test) - f(x_test).unwrap() ).abs() < epsilon);
     }
+    assert!(error < epsilon);
 }
 
 #[test]
@@ -69,7 +126,10 @@ fn test_chebyshev_adaptive_and_term_truncation() {
     let epsilon = 1e-6;
     let N_max = 512;
     let error_calc = ErrorCalc::Absolute;
-    let (a_1, error, _) = chebyshev_adaptive(&f, a, b, N0, epsilon, N_max, error_calc).unwrap();    
+    let (a_1, error, _) = chebyshev_adaptive(&f, a, b, N0, epsilon, N_max, error_calc).unwrap();
+
+    assert!(chebyshev_adaptive(&failing, a, b, N0, epsilon, N_max, error_calc).is_err());
+
     let x1 = 0.25;
     let fx_approx = chebyshev_approximate(a_1.clone(), a, b, x1);
     let fx = f(x1).unwrap();
@@ -117,6 +177,9 @@ fn test_chebyshev_subdivision() {
 
     // Ensure it returns error for bad interval limit
     assert!(chebyshev_subdivide(&f, vec![(0.0, 1.0)], 2, epsilon, 4, -1.0, error_calc).is_err());
+
+    // Ensure it fails for failing function
+    assert!(chebyshev_subdivide(&failing, vec![(0.0, 1.0)], N0, epsilon, N_max, interval_limit, error_calc).is_err());
 }
 
 #[test]
@@ -220,7 +283,6 @@ fn test_polynom() {
 
     let q = |x: f64| -> Result<f64, std::convert::Infallible> { Ok(x.powi(4) + 4.2*x.powi(3) - 1.8*x.powi(2) - 13.*x + 9.6)};
     let dq = |x: f64| -> Result<f64, std::convert::Infallible> { Ok(4.*x*(x*(x + 3.15) - 0.9) - 13.)};
-
     let c_j: Vec<f64> = vec![1., 4.2, -1.8, -13., 9.6];
 
     let mut roots = real_polynomial_roots(c_j.clone(), 1e-8).unwrap();
@@ -236,7 +298,40 @@ fn test_polynom() {
     roots.sort_by(|a, b| a.total_cmp(b));
 
     for (root, true_root) in roots.iter().zip(&true_roots) {
-        let polished_root = newton_polish(&q, &dq, *root, 10000, 10.*f64::EPSILON).unwrap();
-        assert!((polished_root - true_root).abs() < 1e-14)
+        let polished_root_newton = newton_polish(&q, &dq, *root, 10000, 10.*f64::EPSILON).unwrap();
+        let polished_root_secant = secant_polish(&q, *root, 10000, 10.*f64::EPSILON).unwrap();
+        assert!((polished_root_newton - true_root).abs() < 1e-14);
+        assert!((polished_root_secant - true_root).abs() < 1e-14);
     }
+}
+
+#[test]
+fn test_rootfinders() {
+    let q = |x: f64| -> Result<f64, std::convert::Infallible> { Ok(x.powi(4) + 4.2*x.powi(3) - 1.8*x.powi(2) - 13.*x + 9.6)};
+    let dq = |x: f64| -> Result<f64, std::convert::Infallible> { Ok(4.*x*(x*(x + 3.15) - 0.9) - 13.)};
+    let c_j: Vec<f64> = vec![1., 4.2, -1.8, -13., 9.6];
+
+    let a = -4.0;
+    let b = 4.0;
+    let config = Config::default();
+    let intervals = vec![(-4.0, 0.0), (0.0, 4.0)];
+    let roots_1 = real_polynomial_roots(c_j, config.complex_threshold).unwrap();
+    let roots_2 = find_roots(&q, intervals.clone(), config).unwrap();
+    let roots_3 = find_roots_with_newton_polishing(&q, &q, &dq, a, b, config).unwrap();
+    let roots_4 = find_roots_with_secant_polishing(&q, &q, a, b, config).unwrap();
+    let roots_5 = find_roots_piecewise_with_newton_polishing(&q, &q, &dq, intervals.clone(), config).unwrap();
+    let roots_6 = find_roots_piecewise_with_secant_polishing(&q, &q, intervals.clone(), config).unwrap();
+
+    assert!((roots_1[0] + 3.2).abs() < config.epsilon);
+    assert!((roots_2[0] + 3.2).abs() < config.epsilon);
+    assert!((roots_3[0] + 3.2).abs() < config.epsilon);
+    assert!((roots_4[0] + 3.2).abs() < config.epsilon);
+    assert!((roots_5[0] + 3.2).abs() < config.epsilon);
+    assert!((roots_6[0] + 3.2).abs() < config.epsilon);
+
+    assert!(find_roots(&failing, intervals.clone(), config).is_err());
+    assert!(find_roots_with_newton_polishing(&failing, &failing, &failing, a, b, config).is_err());
+    assert!(find_roots_with_secant_polishing(&failing, &failing, a, b, config).is_err());
+    assert!(find_roots_piecewise_with_newton_polishing(&failing, &failing, &failing, intervals.clone(), config).is_err());
+    assert!(find_roots_piecewise_with_secant_polishing(&failing, &failing, intervals.clone(), config).is_err());
 }

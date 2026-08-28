@@ -45,6 +45,10 @@ pub fn monomial_frobenius_matrix(c_j: DVector<f64>) -> Result<DMatrix<f64>, Cheb
         return Err(ChebError::Input(InputProblem::EmptyCoefficients))
     }
 
+    if c_j.len() == 1 {
+        return Err(ChebError::Input(InputProblem::PolynomialDegreeInvalid))
+    }
+
     let N: usize = c_j.len() - 1;
 
     let mut A_jk: DMatrix<f64> = DMatrix::zeros(N, N);
@@ -60,15 +64,18 @@ pub fn monomial_frobenius_matrix(c_j: DVector<f64>) -> Result<DMatrix<f64>, Cheb
 }
 
 /// Constructs the monomial Fiedler companion matrix from monomial coefficients `c_j`
-/// Assumes the leading coefficient is 1. and c_n is degree-0  
-///
+/// 
 /// # Source  
 /// \[3\] Example 2.4 and surrounding discussion  
 ///  - \[3\] M. Fiedler, A note on companion matrices, Lin. Alg. and its App., 2003, doi:10.1016/S0024-3795(03)00548-2  
 fn monomial_fiedler_matrix(c_j: DVector<f64>) -> Result<DMatrix<f64>, ChebError> {
 
-    if c_j.is_empty() {
+    if c_j.is_empty(){
         return Err(ChebError::Input(InputProblem::EmptyCoefficients))
+    }
+
+    if c_j.len() == 1 {
+        return Err(ChebError::Input(InputProblem::PolynomialDegreeInvalid))
     }
 
     let N: usize = c_j.len() - 1;
@@ -99,6 +106,18 @@ fn monomial_fiedler_matrix(c_j: DVector<f64>) -> Result<DMatrix<f64>, ChebError>
     A_jk[(1, 0)] = 1.;
 
     Ok(A_jk)
+}
+
+#[test]
+fn test_fiedler() {
+    let c = DVector::from(vec![]);
+    assert!(monomial_fiedler_matrix(c).is_err());
+
+    let d = DVector::from(vec![1.0]);
+    assert!(monomial_fiedler_matrix(d).is_err());
+
+    let e = DVector::from(vec![1.0, 2.0, 3.0]);
+    assert!(monomial_fiedler_matrix(e).is_ok());
 }
 
 #[cfg(test)]
