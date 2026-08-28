@@ -390,7 +390,7 @@ pub fn real_polynomial_roots(c_j: Vec<f64>, complex_threshold: f64) -> Result<Ve
     let leading_coefficient = c_j[0];
     let scaled_c_j = c_j.iter().map(|&x| x/leading_coefficient).collect::<Vec<f64>>();
 
-    let mut B_jk = monomial_fiedler_matrix(scaled_c_j.into());
+    let mut B_jk = monomial_fiedler_matrix(scaled_c_j.into())?;
 
     balance_parlett_reinsch(&mut B_jk);
 
