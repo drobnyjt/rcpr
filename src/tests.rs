@@ -26,6 +26,24 @@ fn q(x: f64) -> Result<f64, std::convert::Infallible> {
 }
 
 #[test]
+fn test_lobatto_grid() {
+    let a = 0.0;
+    let b = 1.0;
+    let N = 5;
+    let grid = lobatto_grid(a, b, N).unwrap();
+
+    assert!(grid.len() == N + 1);
+
+    assert!(lobatto_grid(0.0, 0.0, N).is_err());
+    assert!(lobatto_grid(0.0, -1.0, N).is_err());
+
+    assert!(lobatto_grid(a, b, 0).is_err());
+
+    assert!(grid.clone()[0] == b);
+    assert!(*grid.last().unwrap() == a);
+}
+
+#[test]
 fn dynamic_range() {
     let a = 0.0;
     let b = 8.5;

@@ -36,7 +36,8 @@ pub enum InputProblem {
     ComplexThresholdInvalid(f64),
     EpsilonInvalid(f64),
     FarFromZeroInvalid(f64),
-    Degree1Invalid,
+    PolynomialDegreeInvalid,
+    GridSizeInvalid,
 }
 
 #[derive(Debug)]
@@ -232,7 +233,7 @@ fn chebyshev_coefficients_fast<F, E>(f: &F, a: f64, b: f64, N: usize, previous: 
 where F: Fn(f64) -> Result<f64, E>, E: std::error::Error + Send + Sync + 'static, {
     //Given a function f and an interval [a, b], returns a vector of the Chebyshev interpolation
     //coefficients on that interval of order N.
-    let xk = lobatto_grid(a, b, N);
+    let xk = lobatto_grid(a, b, N)?;
     let I_jk = interpolation_matrix(N);
 
     if previous.is_empty() {
@@ -340,7 +341,7 @@ fn delta(j: i32, k: i32) -> f64 {
 #[concurrent_cached]
 /// Chebyshev interpolation matrix of size (N + 1).
 /// \[2\] A.3
-///  - \ [1\] J Boyd, Solving Transcendental Equations, SIAM, 2014, doi: 10.1137/1.9781611973525
+///  - \[1\] J Boyd, Solving Transcendental Equations, SIAM, 2014, doi: 10.1137/1.9781611973525
 ///  - \[2\] J Boyd, Finding the Zeros of a Univariate Equation, SIAM Review, 2013, doi:10.1137/110838297
 fn interpolation_matrix(N: usize) -> DMatrix<f64> {
 
@@ -352,4 +353,19 @@ fn interpolation_matrix(N: usize) -> DMatrix<f64> {
         }
     }
     I_jk
+}
+
+/// Calculates the values of a Lobatto grid on \[a, b\] of degree N
+/// 
+/// # Source
+/// \[2\] A.1
+///  - \[2\] J Boyd, Finding the Zeros of a Univariate Equation, SIAM Review, 2013, doi:10.1137/110838297
+pub fn lobatto_grid(a: f64, b: f64, N: usize) -> Result<Vec<f64>, ChebError> {
+    if b <= a {
+        return Err(ChebError::Input(InputProblem::IntervalInvalid((a, b))))
+    }
+    if N == 0 {
+        return Err(ChebError::Input(InputProblem::GridSizeInvalid))
+    }
+    Ok((0..=N).map(|k| (b - a)/2.*(PI*k as f64/N as f64).cos() + (b + a)/2.).collect::<Vec<f64>>())
 }

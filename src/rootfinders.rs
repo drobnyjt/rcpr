@@ -379,8 +379,8 @@ pub fn find_roots_piecewise_with_secant_polishing<F, G, E>(g: &G, f: &F, interva
 ///  - `roots`: list of roots found; `Vec<f64>`  
 pub fn real_polynomial_roots(c_j: Vec<f64>, complex_threshold: f64) -> Result<Vec<f64>, ChebError> {
 
-    if c_j.len() < 1 {
-        return Err(ChebError::Input(InputProblem::Degree1Invalid))
+    if c_j.len() < 3 {
+        return Err(ChebError::Input(InputProblem::PolynomialDegreeInvalid))
     }
 
     let leading_coefficient = c_j[0];
