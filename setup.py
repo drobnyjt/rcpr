@@ -3,7 +3,7 @@ from setuptools_rust import Binding, RustExtension
 
 setup(
     name="rcpr",
-    version="0.3.0",
+    version="0.5.0",
     rust_extensions=[
         RustExtension(
             "pyacpr",

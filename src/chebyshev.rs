@@ -36,6 +36,7 @@ pub enum InputProblem {
     ComplexThresholdInvalid(f64),
     EpsilonInvalid(f64),
     FarFromZeroInvalid(f64),
+    Degree1Invalid,
 }
 
 #[derive(Debug)]
@@ -168,11 +169,11 @@ pub fn chebyshev_approximate(a_j: DVector<f64>, a: f64, b: f64, x: f64) -> f64 {
 ///  - `evaluations`: Evaluations of f(x) on the Lobatto grid for each interval - saved for reuse
 /// 
 /// # Errors
-/// Will return `ChebError::Numeric` if subdivided interval is smaller than specified
+/// Will return `ChebError::Numeric` if subdivided interval is smaller than specified 
+/// limit or smaller than machine precision.
 ///
 /// # Sources
 /// Strategy described in \[1\] §2.9 and \[2\]
-/// limit or smaller than machine precision.
 ///  - \[1\] J Boyd, Solving Transcendental Equations, SIAM, 2014, doi: 10.1137/1.9781611973525
 ///  - \[2\] J Boyd, Finding the Zeros of a Univariate Equation, SIAM Review, 2013, doi:10.1137/110838297
 pub fn chebyshev_subdivide<F, E>(
