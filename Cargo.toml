@@ -1,6 +1,6 @@
 [package]
 name = "rcpr"
-version = "0.4.0"
+version = "0.5.0"
 authors = ["Jon Drobny <jdrobny@tae.com>"]
 edition = "2024"
 description = "Adaptive Chebyshev Proxy Rootfinding with Automatic Subdivision and auxiliary functions."
