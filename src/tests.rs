@@ -26,6 +26,105 @@ fn q(x: f64) -> Result<f64, std::convert::Infallible> {
 }
 
 #[test]
+fn test_frobenius_matrix_inputs() {
+    // empty coefficients can't be used to make a matrix
+    let a = DVector::from(vec![]);
+    assert!(chebyshev_frobenius_matrix(a).is_err());
+
+    // constant functions don't have a companion matrix - no roots
+    let b = DVector::from(vec![1.0]);
+    assert!(chebyshev_frobenius_matrix(b).is_err());
+
+    // trailing zeros should cause divide by zero error
+    let c = DVector::from(vec![1.0, 2.0, 0.0]);
+    assert!(chebyshev_frobenius_matrix(c).is_err());
+
+    // minimum Ok example is two nonzero elements
+    let d = DVector::from(vec![1.0, 2.0]);
+    assert!(chebyshev_frobenius_matrix(d).is_ok());
+}
+
+#[test]
+fn test_chebyshev_adaptive_and_term_truncation() {
+    let a = -5.0;
+    let b = 5.0;
+    let f = |x: f64| -> Result<f64, std::convert::Infallible> { Ok(x.powi(4) + 4.2*x.powi(3) - 1.8*x.powi(2) - 13.*x + 9.6) };
+    let N0 = 2;
+    let epsilon = 1e-6;
+    let N_max = 512;
+    let error_calc = ErrorCalc::Absolute;
+    let (a_1, error, _) = chebyshev_adaptive(&f, a, b, N0, epsilon, N_max, error_calc).unwrap();    
+    let x1 = 0.25;
+    let fx_approx = chebyshev_approximate(a_1.clone(), a, b, x1);
+    let fx = f(x1).unwrap();
+    // Error between f(x) and ~f(x) must be < epsilon 
+    assert!((fx_approx - fx).abs() < epsilon);
+    assert!(error < epsilon);
+
+    for a in a_1.clone().iter() {
+        println!("{}", a);
+    }
+    let a_2 = truncate_chebyshev_coefficients(a_1.clone()).unwrap();
+        for a in a_2.clone().iter() {
+        println!("{}", a);
+    }
+    // truncation should remove terms in this case - doubling degree goes higher than degree of f
+    assert!(a_2.clone().len() < a_1.len());
+    // a_2 after truncation should be as long as degree of f + 1 if f is polynomial
+    assert!(a_2.len() == 5);
+}
+
+#[test]
+fn test_chebyshev_subdivision() {
+
+    let f = |x: f64| -> Result<f64, std::convert::Infallible> { Ok(((x - 0.5)/1e-6).tanh())};
+    let intervals = vec![(0.0, 1.0)];
+    let N0 = 1;
+    let N_max = 2048;
+    let epsilon = 1e-5;
+    let interval_limit = 1e-10;
+    let error_calc = ErrorCalc::Relative;
+
+    // Ensure Chebyshev correctly subdivides for step function
+    let (output_intervals, _, _) = chebyshev_subdivide(&f, intervals, N0, epsilon, N_max, interval_limit, error_calc).unwrap();
+    assert!(output_intervals.len() > 1);
+
+    // Ensure it returns error for zero-width interval
+    assert!(chebyshev_subdivide(&f, vec![(0.0, 0.0)], N0, epsilon, N_max, interval_limit, error_calc).is_err());
+
+    // Ensure it returns error for N0 == 0
+    assert!(chebyshev_subdivide(&f, vec![(0.0, 1.0)], 0, epsilon, N_max, interval_limit, error_calc).is_err());
+
+    // Ensure it returns error for N_max < N0
+    assert!(chebyshev_subdivide(&f, vec![(0.0, 1.0)], 2, epsilon, 1, interval_limit, error_calc).is_err());
+
+    // Ensure it returns error for bad interval limit
+    assert!(chebyshev_subdivide(&f, vec![(0.0, 1.0)], 2, epsilon, 4, -1.0, error_calc).is_err());
+}
+
+#[test]
+fn test_lobatto_grid() {
+    let a = 0.0;
+    let b = 1.0;
+    let N = 5;
+    let grid = lobatto_grid(a, b, N).unwrap();
+
+    // Lobatto grid has N + 1 points
+    assert!(grid.len() == N + 1);
+
+    // Lobatto grid cannot be constructed with an invalid interval
+    assert!(lobatto_grid(0.0, 0.0, N).is_err());
+    assert!(lobatto_grid(0.0, -1.0, N).is_err());
+
+    // Lobatto grid cannot be degree 0 or lower
+    assert!(lobatto_grid(a, b, 0).is_err());
+
+    // Lobatto grid endpoints should be interval endpoints
+    assert!(grid.clone()[0] == b);
+    assert!(*grid.last().unwrap() == a);
+}
+
+#[test]
 fn dynamic_range() {
     let a = 0.0;
     let b = 8.5;

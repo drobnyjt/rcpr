@@ -5,10 +5,9 @@ use pyo3::exceptions::*;
 #[cfg(feature = "python")]
 use pythonize::*;
 
-use crate::chebyshev::{chebyshev_adaptive, chebyshev_approximate, chebyshev_subdivide, ErrorCalc};
+use crate::chebyshev::{lobatto_grid, chebyshev_adaptive, chebyshev_approximate, chebyshev_subdivide, ErrorCalc};
 use crate::rootfinders::*;
 use crate::polish::secant_polish;
-use crate::lobatto_grid;
 
 #[cfg(feature = "python")]
 #[pymodule]
@@ -45,7 +44,7 @@ mod pyacpr {
 #[pyfunction]
 pub fn lobatto_grid_py<'py>(_python: Python<'py>, a: f64, b: f64, N: usize) -> PyResult<Vec<f64>> {
     if (b > a) && (N > 0) {
-        Ok(lobatto_grid(a, b, N))
+        lobatto_grid(a, b, N).map_err(|e| PyRuntimeError::new_err(format!("Failed to create Lobatto grid: {}", e)))
     } else {
         Err(PyValueError::new_err(format!("Invalid input to Lobatto Grid.")))
     }

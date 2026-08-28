@@ -36,7 +36,10 @@ pub enum InputProblem {
     ComplexThresholdInvalid(f64),
     EpsilonInvalid(f64),
     FarFromZeroInvalid(f64),
-    Degree1Invalid,
+    PolynomialDegreeInvalid,
+    GridSizeInvalid,
+    EmptyIntervals,
+    EmptyCoefficients,
 }
 
 #[derive(Debug)]
@@ -82,6 +85,19 @@ pub fn chebyshev_adaptive<F, E>(
         F: Fn(f64) -> Result<f64, E>,
         E: std::error::Error + Send + Sync + 'static, 
     {
+
+    if epsilon <= 0.0 {
+        return Err(ChebError::Input(InputProblem::EpsilonInvalid(epsilon)))
+    }
+
+    if N0 == 0 {
+        return Err(ChebError::Input(InputProblem::InitialDegreeInvalid(N0)))
+    }
+
+    if N_max == 0 || N_max < N0 {
+        return Err(ChebError::Input(InputProblem::MaxDegreeInvalid(N_max)))
+    }
+
     //Adaptive Chebyshev approximation of the function f on the interval [a, b], which starts from degree N0 and doubles
     //the degree each iteration until the error is less than epsilon, starting with order N0 returning the Chebyshev coefficients a if
     //convergence is reached before the degree exceeds N_max.
@@ -92,13 +108,29 @@ pub fn chebyshev_adaptive<F, E>(
         let N1 = 2*N0;
         let (a_1, f_1) = chebyshev_coefficients_fast(f, a, b, N1, f_0)?;
 
-        //Error is defined as sum(delta) where delta_2N = fN(x) - f2N(x)
-        //Since the N0..2N0 terms of fN are zero, this sum can be split into two pieces
-        let absolute_error = a_0.iter().enumerate().map(|(i, a)| (a - a_1[i]).abs()).sum::<f64>() + a_1.iter().enumerate().filter(|(i, _)| i >= &(N0 + 1)).map(|(_, a)| a.abs()).sum::<f64>();
+        // Absolute error is approximated as the sum of the difference in Chebyshev coefficients 
+        // between two iterations; absolute error = |a_1 - a_0| ~ |fN(xk1) - f2N(xk2)|
+        // Since the N0..2N0 terms of fN are zero, this sum can be split into two pieces
+        // Note that for degree N, there are N + 1 coefficients
+        let mut absolute_error = a_0.iter().zip(&a_1).map(|(a_i, a_j)| (a_i - a_j).abs()).sum::<f64>() + a_1.iter().skip(a_0.len()).map(|&a_j| a_j.abs()).sum::<f64>();
+        // For pathological functions at low N, e.g., a step function for N=1, absolute error can be estimated as zero
+        // In this case, I calculate explicitly the error between the interpolant and f at a 2N Lobatto grid point not on the N grid
+        // This is added to the absolute error calculation at that point.
+        if absolute_error == 0.0 {
+            let x_off_grid = ((b - a)/2.*(PI/N1 as f64).cos() + (b + a)/2. + b)/2.;
+            let f_off_grid = f(x_off_grid).map_err(|e| ChebError::Function(format!("Failed to calculate f(x): {}", e)))?;
+            let g_off_grid = chebyshev_approximate(a_0, a, b, x_off_grid);
+            absolute_error += (g_off_grid - f_off_grid).abs();
+        }
+        // Relative error is normalized by the maximum magnitude of the function evaluated on the Lobatto grid
+        // If the maximum is exactly zero, which can be the case for f(x) ~ 0 on some interval, normalization is skipped
         let error = match error_calc {
             ErrorCalc::Absolute => absolute_error,
             ErrorCalc::Relative => {
-                let norm = f_1.iter().map(|&x| x.abs()).max_by(f64::total_cmp).ok_or(ChebError::Numeric(NumericProblem::Comparison))?;
+                let norm = f_1.iter()
+                    .map(|&x| x.abs())
+                    .max_by(f64::total_cmp)
+                    .ok_or(ChebError::Numeric(NumericProblem::Comparison))?;
                 if norm == 0.0 {
                     absolute_error
                 } else {
@@ -107,6 +139,7 @@ pub fn chebyshev_adaptive<F, E>(
             }
         };
 
+        // Stopping condition checks if next iteration would exceed N_max
         if (error < epsilon) || (2*N1 > N_max) {
             return Ok((a_1, error, f_1))
         };
@@ -130,26 +163,26 @@ pub fn chebyshev_adaptive<F, E>(
 ///
 /// # Sources
 ///
-///  - \[1\] §B.2.1 Eqs. B.9-B.13 and Table B.2
+///  - \[1\] §B.2.1 Eqs. B.9-B.13 and Table B.2 (Clenshaw-Curtis recurrence relation)
 ///  - \[1\] J Boyd, Solving Transcendental Equations, SIAM, 2014, doi: 10.1137/1.9781611973525
 pub fn chebyshev_approximate(a_j: DVector<f64>, a: f64, b: f64, x: f64) -> f64 {
     let N = a_j.len() - 1;
 
-    let xi = (2.0 * x - (b + a)) / (b - a);
-    let mut b0 = 0.0;
-    let mut b1 = 0.0;
-    let mut b2 = 0.0;
-    let mut b3 = 0.0;
+    let xi = (2. * x - (b + a)) / (b - a);
+    let mut b0 = 0.;
+    let mut b1 = 0.;
+    let mut b2 = 0.;
+    let mut b3 = 0.;
 
     // N+1 iterations, consuming a_N, a_{N-1}, ..., a_0
     for i in 1..=N + 1 {
-        b0 = 2.0 * xi * b1 - b2 + a_j[N + 1 - i];
+        b0 = 2. * xi * b1 - b2 + a_j[N + 1 - i];
         b3 = b2;
         b2 = b1;
         b1 = b0;
     }
 
-    (b0 - b3 + a_j[0]) / 2.0
+    (b0 - b3 + a_j[0]) / 2.
 }
 
 /// Performs adaptive Chebyshev interpolation for f(x) on x=\[a, b\] with automatic subdivision.
@@ -184,6 +217,10 @@ pub fn chebyshev_subdivide<F, E>(
         E: std::error::Error + Send + Sync + 'static,
     {
 
+    if interval_limit < 0. {
+        return Err(ChebError::Input(InputProblem::IntervalLimitInvalid(interval_limit)));
+    }
+
     let mut coefficients: Vec<DVector<f64>> = Vec::new();
     let mut intervals_out: Vec<(f64, f64)> = Vec::new();
     let mut evaluations: Vec<DVector<f64>> = Vec::new();
@@ -196,16 +233,17 @@ pub fn chebyshev_subdivide<F, E>(
 
         let a = interval.0;
         let b = interval.1;
-
         let (a_0, error, f_0) = chebyshev_adaptive(f, a, b, N0, epsilon, N_max, error_calc)?;
         
+        // chebyshev_adaptive will double the Chebyshev degree N until the estimated error is below epsilon
         if error < epsilon {
             intervals_out.push(interval);
             coefficients.push(a_0);
             evaluations.push(f_0);
 
-        } else {
-
+        } else {         
+            // if N_max is exceeded, current interval is split in two and chebyshev_subdivide is called instead,
+            // which will continue with degree-doubling and further subdivision until all intervals reach error < epsilon 
             let mid = a + (b - a)/2.;
             if !(a < mid && mid < b) {
                 return Err(ChebError::Numeric(NumericProblem::IntervalTooSmall((a, b))))
@@ -232,13 +270,21 @@ fn chebyshev_coefficients_fast<F, E>(f: &F, a: f64, b: f64, N: usize, previous: 
 where F: Fn(f64) -> Result<f64, E>, E: std::error::Error + Send + Sync + 'static, {
     //Given a function f and an interval [a, b], returns a vector of the Chebyshev interpolation
     //coefficients on that interval of order N.
-    let xk = lobatto_grid(a, b, N);
+    let xk = lobatto_grid(a, b, N)?;
     let I_jk = interpolation_matrix(N);
 
+    // If previous function evaluation at N_prev = N / 2 is available, it can be used to 
+    // speed up the calculation of Chebyshev coefficients.
+    // This is because the double-degree Lobatto grids include the previous ones;
+    // e.g., every element x_2[2i] = x_1[i]
+    // If not available, calculate all here - otherwise, proceed with re-use
     if previous.is_empty() {
-
-        let f_xk = DVector::<f64>::from(xk.iter().map(|&x| f(x)).collect::<Result<Vec<f64>, E>>().map_err(|e| ChebError::Function(format!("Failed to calculate f(x): {}", e)))?);
-
+        let f_xk = DVector::<f64>::from(
+            xk.iter()
+            .map(|&x| f(x))
+            .collect::<Result<Vec<f64>, E>>()
+            .map_err(|e| ChebError::Function(format!("Failed to calculate f(x): {}", e)))?
+        );
         return Ok((&I_jk*&f_xk, f_xk))
     }
 
@@ -250,13 +296,21 @@ where F: Fn(f64) -> Result<f64, E>, E: std::error::Error + Send + Sync + 'static
         } else {
             f(x_i)
         }
-    ).collect::<Result<Vec<f64>, E>>().map_err(|e| ChebError::Function(format!("Failed to calculate f(x): {}", e)))?);
+    ).collect::<Result<Vec<f64>, E>>()
+        .map_err(|e| ChebError::Function(format!("Failed to calculate f(x): {}", e)))?);
     
     Ok((&I_jk*&f_xk, f_xk))
 }
 
-/// Given a vector of Chebyshev coefficients [a_0, ... a_N], return [a_0 ... a_i] such that a_i is the
+/// Given a vector of Chebyshev coefficients \[a_0, ... a_N\], return \[a_0 ... a_i\] such that a_i is the
 /// first element > estimated truncation error.
+/// # Arguments
+///  - a_j: chebyshev coefficients; `DVector<f64>`
+/// # Returns
+/// `Result<a_trunc, ChebError>`
+///  - `a_trunc`: truncated coefficients
+/// # Source
+/// \[1\]: §3.4 in Boyd's Solving Transcendental Equations discusses the error estimate
 pub fn truncate_chebyshev_coefficients(a_j: DVector<f64>) -> Result<DVector<f64>, ChebError> {
 
     let truncation_error = (a_j.len() - 1) as f64 * f64::EPSILON * a_j.iter()
@@ -286,6 +340,14 @@ pub fn truncate_chebyshev_coefficients(a_j: DVector<f64>) -> Result<DVector<f64>
 ///  - \[1\] J Boyd, Solving Transcendental Equations, SIAM, 2014, doi: 10.1137/1.9781611973525
 ///  - \[2\] J Boyd, Finding the Zeros of a Univariate Equation, SIAM Review, 2013, doi:10.1137/110838297
 pub fn chebyshev_frobenius_matrix(a_j: DVector<f64>) -> Result<DMatrix<f64>, ChebError> {
+
+    if a_j.is_empty() {
+        return Err(ChebError::Input(InputProblem::EmptyCoefficients));
+    }
+
+    if a_j.len() == 1 {
+        return Err(ChebError::Input(InputProblem::InitialDegreeInvalid(a_j.len() - 1)))
+    }
 
     let N: usize = a_j.len() - 1;
 
@@ -340,7 +402,7 @@ fn delta(j: i32, k: i32) -> f64 {
 #[concurrent_cached]
 /// Chebyshev interpolation matrix of size (N + 1).
 /// \[2\] A.3
-///  - \ [1\] J Boyd, Solving Transcendental Equations, SIAM, 2014, doi: 10.1137/1.9781611973525
+///  - \[1\] J Boyd, Solving Transcendental Equations, SIAM, 2014, doi: 10.1137/1.9781611973525
 ///  - \[2\] J Boyd, Finding the Zeros of a Univariate Equation, SIAM Review, 2013, doi:10.1137/110838297
 fn interpolation_matrix(N: usize) -> DMatrix<f64> {
 
@@ -352,4 +414,19 @@ fn interpolation_matrix(N: usize) -> DMatrix<f64> {
         }
     }
     I_jk
+}
+
+/// Calculates the values of a Lobatto grid on \[a, b\] of degree N
+/// 
+/// # Source
+/// \[2\] A.1
+///  - \[2\] J Boyd, Finding the Zeros of a Univariate Equation, SIAM Review, 2013, doi:10.1137/110838297
+pub fn lobatto_grid(a: f64, b: f64, N: usize) -> Result<Vec<f64>, ChebError> {
+    if b <= a {
+        return Err(ChebError::Input(InputProblem::IntervalInvalid((a, b))))
+    }
+    if N == 0 {
+        return Err(ChebError::Input(InputProblem::GridSizeInvalid))
+    }
+    Ok((0..=N).map(|k| (b - a)/2.*(PI*k as f64/N as f64).cos() + (b + a)/2.).collect::<Vec<f64>>())
 }
