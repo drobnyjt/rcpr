@@ -39,6 +39,7 @@ pub enum InputProblem {
     PolynomialDegreeInvalid,
     GridSizeInvalid,
     EmptyIntervals,
+    EmptyCoefficients,
 }
 
 #[derive(Debug)]
@@ -118,7 +119,10 @@ pub fn chebyshev_adaptive<F, E>(
         let error = match error_calc {
             ErrorCalc::Absolute => absolute_error,
             ErrorCalc::Relative => {
-                let norm = f_1.iter().map(|&x| x.abs()).max_by(f64::total_cmp).ok_or(ChebError::Numeric(NumericProblem::Comparison))?;
+                let norm = f_1.iter()
+                    .map(|&x| x.abs())
+                    .max_by(f64::total_cmp)
+                    .ok_or(ChebError::Numeric(NumericProblem::Comparison))?;
                 if norm == 0.0 {
                     absolute_error
                 } else {
@@ -215,7 +219,6 @@ pub fn chebyshev_subdivide<F, E>(
             return Err(ChebError::Numeric(NumericProblem::IntervalLimitReached((interval.0, interval.1))))
         }
 
-
         let a = interval.0;
         let b = interval.1;
         let (a_0, error, f_0) = chebyshev_adaptive(f, a, b, N0, epsilon, N_max, error_calc)?;
@@ -228,8 +231,8 @@ pub fn chebyshev_subdivide<F, E>(
 
 
         } else {         
-            // if N_max is exceeded, the interval is split in two and chebyshev subdivide is called instead
-            // which will continue with subdivision until all intervals reach error < epsilon 
+            // if N_max is exceeded, current interval is split in two and chebyshev_subdivide is called instead,
+            // which will continue with degree-doubling and further subdivision until all intervals reach error < epsilon 
             let mid = a + (b - a)/2.;
             if !(a < mid && mid < b) {
                 return Err(ChebError::Numeric(NumericProblem::IntervalTooSmall((a, b))))
@@ -259,10 +262,18 @@ where F: Fn(f64) -> Result<f64, E>, E: std::error::Error + Send + Sync + 'static
     let xk = lobatto_grid(a, b, N)?;
     let I_jk = interpolation_matrix(N);
 
+    // If previous function evaluation at N_prev = N / 2 is available, it can be used to 
+    // speed up the calculation of Chebyshev coefficients.
+    // This is because the double-degree Lobatto grids include the previuos ones;
+    // e.g., every element x_2[2i] = x_1[i]
+    // If not available, calculate all here
     if previous.is_empty() {
-
-        let f_xk = DVector::<f64>::from(xk.iter().map(|&x| f(x)).collect::<Result<Vec<f64>, E>>().map_err(|e| ChebError::Function(format!("Failed to calculate f(x): {}", e)))?);
-
+        let f_xk = DVector::<f64>::from(
+            xk.iter()
+            .map(|&x| f(x))
+            .collect::<Result<Vec<f64>, E>>()
+            .map_err(|e| ChebError::Function(format!("Failed to calculate f(x): {}", e)))?
+        );
         return Ok((&I_jk*&f_xk, f_xk))
     }
 
@@ -274,13 +285,21 @@ where F: Fn(f64) -> Result<f64, E>, E: std::error::Error + Send + Sync + 'static
         } else {
             f(x_i)
         }
-    ).collect::<Result<Vec<f64>, E>>().map_err(|e| ChebError::Function(format!("Failed to calculate f(x): {}", e)))?);
+    ).collect::<Result<Vec<f64>, E>>()
+        .map_err(|e| ChebError::Function(format!("Failed to calculate f(x): {}", e)))?);
     
     Ok((&I_jk*&f_xk, f_xk))
 }
 
-/// Given a vector of Chebyshev coefficients [a_0, ... a_N], return [a_0 ... a_i] such that a_i is the
+/// Given a vector of Chebyshev coefficients \[a_0, ... a_N\], return \[a_0 ... a_i\] such that a_i is the
 /// first element > estimated truncation error.
+/// # Arguments
+///  - a_j: chebyshev coefficients; `DVector<f64>`
+/// # Returns
+/// `Result<a_trunc, ChebError>`
+///  - `a_trunc`: truncated coefficients
+/// # Source
+/// \[1\]: §3.4 in Boyd's Solving Transcendental Equations discusses the error estimate
 pub fn truncate_chebyshev_coefficients(a_j: DVector<f64>) -> Result<DVector<f64>, ChebError> {
 
     let truncation_error = (a_j.len() - 1) as f64 * f64::EPSILON * a_j.iter()
@@ -310,6 +329,14 @@ pub fn truncate_chebyshev_coefficients(a_j: DVector<f64>) -> Result<DVector<f64>
 ///  - \[1\] J Boyd, Solving Transcendental Equations, SIAM, 2014, doi: 10.1137/1.9781611973525
 ///  - \[2\] J Boyd, Finding the Zeros of a Univariate Equation, SIAM Review, 2013, doi:10.1137/110838297
 pub fn chebyshev_frobenius_matrix(a_j: DVector<f64>) -> Result<DMatrix<f64>, ChebError> {
+
+    if a_j.is_empty() {
+        return Err(ChebError::Input(InputProblem::EmptyCoefficients));
+    }
+
+    if a_j.len() == 1 {
+        return Err(ChebError::Input(InputProblem::InitialDegreeInvalid(a_j.len() - 1)))
+    }
 
     let N: usize = a_j.len() - 1;
 
