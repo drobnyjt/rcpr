@@ -217,6 +217,10 @@ pub fn chebyshev_subdivide<F, E>(
         E: std::error::Error + Send + Sync + 'static,
     {
 
+    if interval_limit < 0. {
+        return Err(ChebError::Input(InputProblem::IntervalLimitInvalid(interval_limit)));
+    }
+
     let mut coefficients: Vec<DVector<f64>> = Vec::new();
     let mut intervals_out: Vec<(f64, f64)> = Vec::new();
     let mut evaluations: Vec<DVector<f64>> = Vec::new();

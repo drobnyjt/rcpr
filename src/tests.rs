@@ -85,9 +85,21 @@ fn test_chebyshev_subdivision() {
     let interval_limit = 1e-10;
     let error_calc = ErrorCalc::Relative;
 
-    let (output_intervals, coefficients, evaluations) = chebyshev_subdivide(&f, intervals, N0, epsilon, N_max, interval_limit, error_calc).unwrap();
+    // Ensure Chebyshev correctly subdivides for step function
+    let (output_intervals, _, _) = chebyshev_subdivide(&f, intervals, N0, epsilon, N_max, interval_limit, error_calc).unwrap();
     assert!(output_intervals.len() > 1);
 
+    // Ensure it returns error for zero-width interval
+    assert!(chebyshev_subdivide(&f, vec![(0.0, 0.0)], N0, epsilon, N_max, interval_limit, error_calc).is_err());
+
+    // Ensure it returns error for N0 == 0
+    assert!(chebyshev_subdivide(&f, vec![(0.0, 1.0)], 0, epsilon, N_max, interval_limit, error_calc).is_err());
+
+    // Ensure it returns error for N_max < N0
+    assert!(chebyshev_subdivide(&f, vec![(0.0, 1.0)], 2, epsilon, 1, interval_limit, error_calc).is_err());
+
+    // Ensure it returns error for bad interval limit
+    assert!(chebyshev_subdivide(&f, vec![(0.0, 1.0)], 2, epsilon, 4, -1.0, error_calc).is_err());
 }
 
 #[test]
