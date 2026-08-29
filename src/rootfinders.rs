@@ -169,7 +169,7 @@ pub fn find_roots<F, E>(f: &F, intervals: Vec<(f64, f64)>, config: Config) -> Re
             continue
         }
 
-        //Test if all chebyshev interpolants in this interval are far from zero
+        //Test if all function evaluations in this interval are "far from zero"
         //If yes, skip this interval
         let min = fxk.min();
         let max = fxk.max();
@@ -235,15 +235,15 @@ pub fn find_roots_piecewise_with_newton_polishing<F, G, D, E>(g: &G, f: &F, df: 
     where F: Fn(f64) -> Result<f64, E>, G: Fn(f64) -> Result<f64, E>, D: Fn(f64) -> Result<f64, E>, E: std::error::Error + Send + Sync + 'static,    {
 
     let Config {delta, ..} = config;
+    if intervals.is_empty() {
+        return Err(ChebError::Input(InputProblem::EmptyIntervals))
+    }
 
     let a = intervals[0].0;
     let b = intervals[intervals.len() - 1].1;
 
-    if b <= a {
-        return Err(ChebError::Input(InputProblem::IntervalInvalid((a, b))))
-    }
-
     let roots = find_roots(g, intervals, config)?;
+
     let mut polished_roots: Vec<f64> = Vec::new();
 
     for root in roots.iter() {
@@ -386,8 +386,12 @@ pub fn find_roots_piecewise_with_secant_polishing<F, G, E>(g: &G, f: &F, interva
 ///  - `roots`: list of roots found; `Vec<f64>`  
 pub fn real_polynomial_roots(c_j: Vec<f64>, complex_threshold: f64) -> Result<Vec<f64>, ChebError> {
 
-    if c_j.len() < 3 {
-        return Err(ChebError::Input(InputProblem::PolynomialDegreeInvalid))
+    if c_j.len() < 2 {
+        return Err(ChebError::Input(InputProblem::PolynomialDegreeTooLow))
+    }
+
+    if complex_threshold < 0.0 {
+        return Err(ChebError::Input(InputProblem::ComplexThresholdInvalid(complex_threshold)))
     }
 
     let leading_coefficient = c_j[0];

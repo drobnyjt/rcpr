@@ -40,6 +40,7 @@ pub enum InputProblem {
     GridSizeInvalid,
     EmptyIntervals,
     EmptyCoefficients,
+    PolynomialDegreeTooLow,
 }
 
 #[derive(Debug)]
