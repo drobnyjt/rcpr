@@ -65,7 +65,7 @@ pub struct Config {
     pub complex_threshold: f64,
     #[serde(default = "default_float_max")]
     pub far_from_zero: f64, 
-    #[serde(default = "default_float_1_10000")]
+    #[serde(default = "default_float_1_e_minus_12")]
     pub interval_limit: f64,
     #[serde(default = "default_error_calc")]
     pub error_calc: ErrorCalc
@@ -150,6 +150,9 @@ pub fn find_roots<F, E>(f: &F, intervals: Vec<(f64, f64)>, config: Config) -> Re
         return Err(ChebError::Input(InputProblem::FarFromZeroInvalid(far_from_zero)))
     }
 
+    if intervals.is_empty() {
+        return Err(ChebError::Input(InputProblem::EmptyIntervals))
+    }
     let a = intervals[0].0;
     let b = intervals[intervals.len() - 1].1;
 

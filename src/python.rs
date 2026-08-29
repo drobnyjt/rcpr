@@ -58,7 +58,7 @@ pub fn lobatto_grid_py<'py>(_python: Python<'py>, a: f64, b: f64, N: usize) -> P
 ///  - `b`: right side of interval  
 ///  - `epsilon`: relative error of interpolation, option, default `1e-6`
 ///  - `n0`: initial degree of Chebyshev interpolant, optional, default `2`
-///  - `n_max`: maximum degree of Chebyshev interpolant, optional, default `1000`
+///  - `n_max`: maximum degree of Chebyshev interpolant, optional, default `512`
 ///  - `relative_error`: whether to use relative error instead of absolute, optional, default `True`
 ///
 /// # Returns  
@@ -67,11 +67,11 @@ pub fn lobatto_grid_py<'py>(_python: Python<'py>, a: f64, b: f64, N: usize) -> P
 ///  - `error`: estimated relative error of fit  
 #[cfg(feature = "python")]
 #[pyfunction]
-#[pyo3(signature = (f, a, b, epsilon=1e-6, n0=2, n_max=1000, relative_error=true))]
+#[pyo3(signature = (f, a, b, epsilon=1e-6, n0=2, n_max=512, relative_error=true))]
 pub fn chebyshev_coefficients_py<'py>(_python: Python<'py>, f: &Bound<'py, PyAny>, a: f64, b: f64, epsilon: f64, n0: usize, n_max: usize, relative_error: bool) -> PyResult<(Vec<f64>, f64)> {
     let f = |x| f.clone().call1((x,))?.extract();
     let error_calc = if relative_error { ErrorCalc::Relative } else { ErrorCalc::Absolute };
-    let (result, error, _) = chebyshev_adaptive(&f, a, b, n0, epsilon, n_max, error_calc).map_err(|e| PyRuntimeError::new_err(format!("Secant polishing failed: {}", e)))?;
+    let (result, error, _) = chebyshev_adaptive(&f, a, b, n0, epsilon, n_max, error_calc).map_err(|e| PyRuntimeError::new_err(format!("Chebyshev adaptive interpolation failed: {}", e)))?;
     Ok((result.iter().map(|x| *x).collect::<Vec<f64>>(), error))
 }
 
@@ -88,7 +88,7 @@ pub fn chebyshev_coefficients_py<'py>(_python: Python<'py>, f: &Bound<'py, PyAny
 #[cfg(feature = "python")]
 #[pyfunction]
 pub fn chebyshev_approximate_py(a_j: Vec<f64>, a: f64, b: f64, x: f64) -> PyResult<f64> {
-    Ok(chebyshev_approximate(a_j.try_into()?, a, b, x))
+    chebyshev_approximate(a_j.try_into()?, a, b, x).map_err(|e| PyRuntimeError::new_err(format!("Chebyshev approximation failed: {}", e)))
 }
 
 /// Performs Chebyshev interpolation of initial degree n0 and maximum degree n_max with automatic subdivision for f(x) on \[a, b\]
@@ -109,7 +109,7 @@ pub fn chebyshev_approximate_py(a_j: Vec<f64>, a: f64, b: f64, x: f64) -> PyResu
 ///  - `error`: estimated relative error of fit  
 #[cfg(feature = "python")]
 #[pyfunction]
-#[pyo3(signature = (f, a, b, epsilon=1e-6, n0=2, n_max=1000, interval_limit=1e-4, relative_error=true))]
+#[pyo3(signature = (f, a, b, epsilon=1e-6, n0=2, n_max=512, interval_limit=1e-4, relative_error=true))]
 pub fn chebyshev_subdivide_py<'py>(_python: Python<'py>, f: &Bound<'py, PyAny>, a: f64, b: f64, epsilon: f64, n0: usize, n_max: usize, interval_limit: f64, relative_error: bool) -> PyResult<(Vec<(f64, f64)>, Vec<Vec<f64>>)> {
     let f = |x| f.clone().call1((x,))?.extract();
     let error_calc = if relative_error { ErrorCalc::Relative } else { ErrorCalc::Absolute };
@@ -151,7 +151,7 @@ pub fn find_roots_py<'py>(_python: Python<'py>, f: &Bound<'py, PyAny>, a: f64, b
 ///  - `root_polished`: polished root  
 #[cfg(feature = "python")]
 #[pyfunction]
-pub fn secant_polish_py<'py>(_python: Python<'py>, f: &Bound<'py, PyAny>, x0: f64, epsilon: f64, iter_max: usize) -> PyResult<f64> {
+pub fn secant_polish_py<'py>(_python: Python<'py>, f: &Bound<'py, PyAny>, x0: f64, delta: f64, iter_max: usize) -> PyResult<f64> {
     let f = |x| f.clone().call1((x,))?.extract();
-    secant_polish(&f, x0, iter_max, epsilon).map_err(|e| PyRuntimeError::new_err(format!("Secant polishing failed: {}", e)))
+    secant_polish(&f, x0, iter_max, delta).map_err(|e| PyRuntimeError::new_err(format!("Secant polishing failed: {}", e)))
 }

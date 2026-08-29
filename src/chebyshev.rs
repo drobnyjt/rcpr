@@ -119,7 +119,7 @@ pub fn chebyshev_adaptive<F, E>(
         if absolute_error == 0.0 {
             let x_off_grid = ((b - a)/2.*(PI/N1 as f64).cos() + (b + a)/2. + b)/2.;
             let f_off_grid = f(x_off_grid).map_err(|e| ChebError::Function(format!("Failed to calculate f(x): {}", e)))?;
-            let g_off_grid = chebyshev_approximate(a_0, a, b, x_off_grid);
+            let g_off_grid = chebyshev_approximate(a_0, a, b, x_off_grid)?;
             absolute_error += (g_off_grid - f_off_grid).abs();
         }
         // Relative error is normalized by the maximum magnitude of the function evaluated on the Lobatto grid
@@ -165,7 +165,12 @@ pub fn chebyshev_adaptive<F, E>(
 ///
 ///  - \[1\] §B.2.1 Eqs. B.9-B.13 and Table B.2 (Clenshaw-Curtis recurrence relation)
 ///  - \[1\] J Boyd, Solving Transcendental Equations, SIAM, 2014, doi: 10.1137/1.9781611973525
-pub fn chebyshev_approximate(a_j: DVector<f64>, a: f64, b: f64, x: f64) -> f64 {
+pub fn chebyshev_approximate(a_j: DVector<f64>, a: f64, b: f64, x: f64) -> Result<f64, ChebError> {
+
+    if a_j.is_empty() {
+        return Err(ChebError::Input(InputProblem::EmptyCoefficients))
+    }
+
     let N = a_j.len() - 1;
 
     let xi = (2. * x - (b + a)) / (b - a);
@@ -182,7 +187,7 @@ pub fn chebyshev_approximate(a_j: DVector<f64>, a: f64, b: f64, x: f64) -> f64 {
         b1 = b0;
     }
 
-    (b0 - b3 + a_j[0]) / 2.
+    Ok((b0 - b3 + a_j[0]) / 2.)
 }
 
 /// Performs adaptive Chebyshev interpolation for f(x) on x=\[a, b\] with automatic subdivision.

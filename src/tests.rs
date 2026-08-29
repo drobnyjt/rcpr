@@ -112,7 +112,7 @@ fn test_approximate() {
     let (a_1, error, _) = chebyshev_adaptive(&f, a, b, N0, epsilon, N_max, error_calc).unwrap();    
 
     for x_test in vec![-5.0, -4.0, -3.0, -2.0, -1.0, 1.0, 2.0, 3.0, 4.0, 5.0].into_iter() {
-        assert!((chebyshev_approximate(a_1.clone(), a, b, x_test) - f(x_test).unwrap() ).abs() < epsilon);
+        assert!((chebyshev_approximate(a_1.clone(), a, b, x_test).unwrap() - f(x_test).unwrap() ).abs() < epsilon);
     }
     assert!(error < epsilon);
 }
@@ -131,7 +131,7 @@ fn test_chebyshev_adaptive_and_term_truncation() {
     assert!(chebyshev_adaptive(&failing, a, b, N0, epsilon, N_max, error_calc).is_err());
 
     let x1 = 0.25;
-    let fx_approx = chebyshev_approximate(a_1.clone(), a, b, x1);
+    let fx_approx = chebyshev_approximate(a_1.clone(), a, b, x1).unwrap();
     let fx = f(x1).unwrap();
     // Error between f(x) and ~f(x) must be < epsilon 
     assert!((fx_approx - fx).abs() < epsilon);
