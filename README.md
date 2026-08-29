@@ -21,13 +21,14 @@ Many users will simply need the config struct and one of three functions: `find_
 
 ```
 Config {
-    epsilon,
-    delta,
-    N0,
-    N_max,
-    complex_threshold,
-    far_from_zero,
-    interval_limit
+    epsilon: f64,
+    delta: f64,
+    N0: usize,
+    N_max: usize,
+    complex_threshold: f64,
+    far_from_zero: f64,
+    interval_limit: f64,
+    error_calc: ErrorCalc (ErrorCalc::Absolute or ErrorCalc::Relative),
 }
 ```
 and can be instantiated with:
@@ -40,6 +41,7 @@ let config = Config::new(
     complex_threshold,
     far_from_zero,
     interval_limit
+    error_calc
 ) 
 ```
 These parameters are:
@@ -50,6 +52,7 @@ These parameters are:
 * `complex_threshold: f64`: the threshold of the imaginary part of roots that are near-real that is tolerated (default: 1e-4)
 * `interval_limit: f64`: if the subdivision algorithm produces an interval below this length, the function will return an Error and abort (default: 1e-4)
 * `far_from_zero: f64`: if G(x) evaluated at all the Lobatto grid points on an interval `[c, d]` is further than this value from zero, that interval will be assumed to have no roots contained within it (default: float_max)
+* error_calc: ErrorCalc (ErrorCalc::Absolute or ErrorCalc::Relative) - which error calculation to use. Relative is scaled by the max magnitude of the Lobatto-grid function evaluations on each interval; absolute error is estimated from the magnitude of the difference between the Nth- and 2Nth-degree Chebyshev interpolants on the interval.
 
 ## Rootfinders
 
