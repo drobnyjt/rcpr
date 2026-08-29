@@ -93,9 +93,10 @@ fn monomial_fiedler_matrix(c_j: DVector<f64>) -> Result<DMatrix<f64>, ChebError>
     }
 
     //Superdiagonals
-
-    for k in (0..N-2).step_by(2) {
-        A_jk[(k, k + 2)] = 1.0;
+    if N > 1 {
+        for k in (0..N-2).step_by(2) {
+            A_jk[(k, k + 2)] = 1.0;
+        }
     }
 
     for k in (0..N-1).step_by(2) {
@@ -103,8 +104,10 @@ fn monomial_fiedler_matrix(c_j: DVector<f64>) -> Result<DMatrix<f64>, ChebError>
     }
 
     A_jk[(0, 0)] = -c_j[1];
-    A_jk[(1, 0)] = 1.;
-
+    if N > 1 {
+        A_jk[(1, 0)] = 1.;
+    }
+    
     Ok(A_jk)
 }
 

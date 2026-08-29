@@ -40,6 +40,7 @@ pub enum InputProblem {
     GridSizeInvalid,
     EmptyIntervals,
     EmptyCoefficients,
+    PolynomialDegreeTooLow,
 }
 
 #[derive(Debug)]
@@ -108,12 +109,12 @@ pub fn chebyshev_adaptive<F, E>(
         let N1 = 2*N0;
         let (a_1, f_1) = chebyshev_coefficients_fast(f, a, b, N1, f_0)?;
 
-        // Absolute error is approximated as the sum of the difference in Chebyshev coefficients 
-        // between two iterations; absolute error = |a_1 - a_0| ~ |fN(xk1) - f2N(xk2)|
+        // Absolute error is approximated as the magnitude of the sum of the difference in Chebyshev coefficients 
+        // between two iterations; i.e., absolute error = sum(|a_1 - a_0|) ~ sum(|fN(xk1) - f2N(xk2)|)
         // Since the N0..2N0 terms of fN are zero, this sum can be split into two pieces
         // Note that for degree N, there are N + 1 coefficients
         let mut absolute_error = a_0.iter().zip(&a_1).map(|(a_i, a_j)| (a_i - a_j).abs()).sum::<f64>() + a_1.iter().skip(a_0.len()).map(|&a_j| a_j.abs()).sum::<f64>();
-        // For pathological functions at low N, e.g., a step function for N=1, absolute error can be estimated as zero
+        // For pathological functions at low N, e.g., a step function for N=1, absolute error can be estimated as exactly zero
         // In this case, I calculate explicitly the error between the interpolant and f at a 2N Lobatto grid point not on the N grid
         // This is added to the absolute error calculation at that point.
         if absolute_error == 0.0 {

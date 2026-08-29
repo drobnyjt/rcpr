@@ -3,6 +3,7 @@ pub use super::*;
 use crate::chebyshev::*;//{chebyshev_subdivide, chebyshev_frobenius_matrix, truncate_chebyshev_coefficients, ErrorCalc, ChebError};
 use crate::polish::*;
 use serde::*;
+use itertools::Itertools;
 
 const DEFAULT_EPSILON: f64 = 1e-6;
 const DEFAULT_DELTA: f64 = 1e-9;
@@ -163,13 +164,13 @@ pub fn find_roots<F, E>(f: &F, intervals: Vec<(f64, f64)>, config: Config) -> Re
     let (intervals, coefficients, evaluations) = chebyshev_subdivide(f, intervals, N0, epsilon, N_max, interval_limit, error_calc)?;
     let mut roots: Vec<f64> = Vec::new();
 
-    for (index, ((i, c), fxk)) in intervals.iter().zip(coefficients).zip(evaluations).enumerate() {
+    for ((i, c), fxk) in intervals.iter().zip(coefficients).zip(evaluations) {
 
         if c.is_empty() {
             continue
         }
 
-        //Test if all chebyshev interpolants in this interval are far from zero
+        //Test if all function evaluations in this interval are "far from zero"
         //If yes, skip this interval
         let min = fxk.min();
         let max = fxk.max();
@@ -202,17 +203,12 @@ pub fn find_roots<F, E>(f: &F, intervals: Vec<(f64, f64)>, config: Config) -> Re
 
         for eigenvalue in eigenvalues.iter() {
             if (eigenvalue.im.abs() <= complex_threshold) && (eigenvalue.re.abs() < 1.0 + config.epsilon) {
-                if (index < intervals.len() - 1) && (1.0 - eigenvalue.re) <= f64::EPSILON {
-                    // if not right-most interval, attempt to drop eigenvalues on right boundary
-                    // this check needs to be more strict than above or it discards real roots
-                    continue
-                }
                 roots.push(eigenvalue.re*(i.1 - i.0)/2. + (i.1 + i.0)/2.)
             }
         }
     }
     roots.sort_by(|a, b| a.total_cmp(b));
-    Ok(roots)
+    Ok(roots.into_iter().dedup_by(|x, y| (x - y).abs() < f64::EPSILON).collect())
 }
 
 /// Finds and Newton-polishes all roots of a function f(x) on intervals \[a_i, b_i\]
@@ -235,15 +231,15 @@ pub fn find_roots_piecewise_with_newton_polishing<F, G, D, E>(g: &G, f: &F, df: 
     where F: Fn(f64) -> Result<f64, E>, G: Fn(f64) -> Result<f64, E>, D: Fn(f64) -> Result<f64, E>, E: std::error::Error + Send + Sync + 'static,    {
 
     let Config {delta, ..} = config;
+    if intervals.is_empty() {
+        return Err(ChebError::Input(InputProblem::EmptyIntervals))
+    }
 
     let a = intervals[0].0;
     let b = intervals[intervals.len() - 1].1;
 
-    if b <= a {
-        return Err(ChebError::Input(InputProblem::IntervalInvalid((a, b))))
-    }
-
     let roots = find_roots(g, intervals, config)?;
+
     let mut polished_roots: Vec<f64> = Vec::new();
 
     for root in roots.iter() {
@@ -386,15 +382,33 @@ pub fn find_roots_piecewise_with_secant_polishing<F, G, E>(g: &G, f: &F, interva
 ///  - `roots`: list of roots found; `Vec<f64>`  
 pub fn real_polynomial_roots(c_j: Vec<f64>, complex_threshold: f64) -> Result<Vec<f64>, ChebError> {
 
-    if c_j.len() < 3 {
-        return Err(ChebError::Input(InputProblem::PolynomialDegreeInvalid))
+    if c_j.len() == 0 {
+        return Err(ChebError::Input(InputProblem::PolynomialDegreeTooLow))
     }
 
-    let leading_coefficient = c_j[0];
-    let scaled_c_j = c_j.iter().map(|&x| x/leading_coefficient).collect::<Vec<f64>>();
+    if c_j.len() == 1 {
+        return Ok(vec![])
+    }
 
+    if c_j.len() == 2 {
+        return Ok(vec![-c_j[1]/c_j[0]])
+    }
+
+    if complex_threshold < 0.0 {
+        return Err(ChebError::Input(InputProblem::ComplexThresholdInvalid(complex_threshold)))
+    }
+
+    if c_j.iter().any(|&x| !x.is_finite()) {
+        return Err(ChebError::Numeric(NumericProblem::NonFinite))
+    }
+
+    let inverse_leading_coefficient = 1./c_j[0];
+    if !inverse_leading_coefficient.is_finite() {
+        return Err(ChebError::Numeric(NumericProblem::NonFinite))
+    }
+
+    let scaled_c_j = c_j.iter().map(|&x| x*inverse_leading_coefficient).collect::<Vec<f64>>();
     let mut B_jk = monomial_fiedler_matrix(scaled_c_j.into())?;
-
     balance_parlett_reinsch(&mut B_jk);
 
     let mut roots: Vec<f64> = B_jk.complex_eigenvalues()

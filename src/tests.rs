@@ -306,6 +306,22 @@ fn test_polynom() {
 }
 
 #[test]
+fn test_polynom_inputs() {
+    let c = vec![1., 0.0];
+    let roots = real_polynomial_roots(c, 1e-9).unwrap();
+    for root in roots.into_iter() {
+        println!("{}", root);
+        assert!(root < f64::EPSILON);
+    }
+    let d = vec![1.0];
+    assert!(real_polynomial_roots(d, 1e-9).unwrap().is_empty());
+    let e = vec![1.0, 2.0, 3.0];
+    assert!(real_polynomial_roots(e, -1.0).is_err());
+    let f = vec![5.0, 5.0];
+    assert!(real_polynomial_roots(f, 1e-9).unwrap()[0] == -1.0);
+}
+
+#[test]
 fn test_rootfinders() {
     let q = |x: f64| -> Result<f64, std::convert::Infallible> { Ok(x.powi(4) + 4.2*x.powi(3) - 1.8*x.powi(2) - 13.*x + 9.6)};
     let dq = |x: f64| -> Result<f64, std::convert::Infallible> { Ok(4.*x*(x*(x + 3.15) - 0.9) - 13.)};
