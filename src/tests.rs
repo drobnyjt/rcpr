@@ -314,9 +314,11 @@ fn test_polynom_inputs() {
         assert!(root < f64::EPSILON);
     }
     let d = vec![1.0];
-    assert!(real_polynomial_roots(d, 1e-9).is_err());
+    assert!(real_polynomial_roots(d, 1e-9).unwrap().is_empty());
     let e = vec![1.0, 2.0, 3.0];
     assert!(real_polynomial_roots(e, -1.0).is_err());
+    let f = vec![5.0, 5.0];
+    assert!(real_polynomial_roots(f, 1e-9).unwrap()[0] == -1.0);
 }
 
 #[test]

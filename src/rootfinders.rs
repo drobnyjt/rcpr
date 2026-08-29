@@ -386,8 +386,16 @@ pub fn find_roots_piecewise_with_secant_polishing<F, G, E>(g: &G, f: &F, interva
 ///  - `roots`: list of roots found; `Vec<f64>`  
 pub fn real_polynomial_roots(c_j: Vec<f64>, complex_threshold: f64) -> Result<Vec<f64>, ChebError> {
 
-    if c_j.len() < 2 {
+    if c_j.len() == 0 {
         return Err(ChebError::Input(InputProblem::PolynomialDegreeTooLow))
+    }
+
+    if c_j.len() == 1 {
+        return Ok(vec![])
+    }
+
+    if c_j.len() == 2 {
+        return Ok(vec![-c_j[1]/c_j[0]])
     }
 
     if complex_threshold < 0.0 {
