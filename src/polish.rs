@@ -1,11 +1,12 @@
 use crate::chebyshev::ChebError;
 use crate::chebyshev::*;
+use crate::hyberr;
 
 /// Polishes roots of a function f(x) using Newton's method to specified error delta; returns error if iter_max exceeded
 pub fn newton_polish<F, D, E>(f: &F, df: &D, x0: f64, iter_max: usize, delta: f64) -> Result<f64, ChebError>
 where F: Fn(f64) -> Result<f64, E>, D: Fn(f64) -> Result<f64, E>, E: std::error::Error + Send + Sync + 'static, {
 
-    if x0.is_nan() {
+    if !x0.is_finite() {
         return Err(ChebError::Numeric(NumericProblem::NonFinite))
     }
 
@@ -15,7 +16,7 @@ where F: Fn(f64) -> Result<f64, E>, D: Fn(f64) -> Result<f64, E>, E: std::error:
     for _ in 1..=iter_max {
         let df_x = df(x).map_err(|e| ChebError::Function(format!("Failed to calculate df(x) for x={}: {}", x, e)))?;
         let xn = x - f(x).map_err(|e| ChebError::Function(format!("Failed to calculate f(x) for x={}: {}", x, e)))?/df_x;
-        if xn.is_nan() || !(1./df_x).is_finite() {
+        if !xn.is_finite() || !(1./df_x).is_finite() {
             return Err(ChebError::Numeric(NumericProblem::NonFinite))
         }
         err = hyberr(xn, x);
@@ -31,15 +32,10 @@ where F: Fn(f64) -> Result<f64, E>, D: Fn(f64) -> Result<f64, E>, E: std::error:
     }))
 }
 
-/// Hybrid Error: https://arxiv.org/html/2403.07492v2
-fn hyberr(x: f64, y: f64) -> f64 {
-    (x - y).abs()/(1. + y.abs())
-}
-
 /// Polishes roots of a function f(x) using secant method to specified error delta; returns error if iter_max exceeded
 pub fn secant_polish<F, E>(f: &F, x0: f64, iter_max: usize, delta: f64) -> Result<f64, ChebError> where F: Fn(f64) -> Result<f64, E>, E: std::error::Error + Send + Sync + 'static, {
 
-    if x0.is_nan() {
+    if !x0.is_finite() {
         return Err(ChebError::Numeric(NumericProblem::NonFinite))
     }
 

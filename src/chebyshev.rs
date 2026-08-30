@@ -223,7 +223,7 @@ pub fn chebyshev_subdivide<F, E>(
         E: std::error::Error + Send + Sync + 'static,
     {
 
-    if interval_limit < 0. {
+    if interval_limit <= 0. {
         return Err(ChebError::Input(InputProblem::IntervalLimitInvalid(interval_limit)));
     }
 
