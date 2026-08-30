@@ -55,6 +55,8 @@ pub fn secant_polish<F, E>(f: &F, x0: f64, iter_max: usize, delta: f64) -> Resul
 
         let x3 = x2 - f2*(x2 - x1)/df;
 
+        println!("{} {} {} {}", x1, x2, f1, f2);
+
         //let err = (x3 - x2)*(x3 - x2);
         // This error is the absolute residual instead of the difference.
         let err = hyberr(x3, x2);
@@ -65,6 +67,7 @@ pub fn secant_polish<F, E>(f: &F, x0: f64, iter_max: usize, delta: f64) -> Resul
         x1 = x2;
         x2 = x3;
     }
+
     Err(ChebError::NotConverged(NotConvergedInfo {
         function_name: "secant_polish",
         previous_error: hyberr(x2, x1),

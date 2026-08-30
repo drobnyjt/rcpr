@@ -6,7 +6,7 @@ use serde::*;
 use itertools::Itertools;
 
 const DEFAULT_EPSILON: f64 = 1e-6;
-const DEFAULT_DELTA: f64 = 1e-9;
+const DEFAULT_DELTA: f64 = 1e-7;
 
 const fn default_epsilon() -> f64 {
     DEFAULT_EPSILON
@@ -243,13 +243,12 @@ pub fn find_roots_piecewise_with_newton_polishing<F, G, D, E>(g: &G, f: &F, df: 
     let mut polished_roots: Vec<f64> = Vec::new();
 
     for root in roots.iter() {
-
-        if let Ok(root_refined) = newton_polish(f, df, *root, NEWTON_MAX_ITERATIONS, delta){
-            if (hyberr(*root, root_refined) < 1.) && (root_refined >= a) && (root_refined <= b) {
-                polished_roots.push(root_refined);
-            }
-        };
+        let root_refined = newton_polish(f, df, *root, NEWTON_MAX_ITERATIONS, delta)?;
+        if (hyberr(*root, root_refined) < 1.) && (root_refined >= a) && (root_refined <= b) {
+            polished_roots.push(root_refined);
+        }
     }
+    polished_roots.sort_by(|a, b| a.total_cmp(b));
     Ok(polished_roots.into_iter().dedup_by(|x, y| (x - y).abs() < delta).collect())
 }
 
@@ -278,12 +277,16 @@ pub fn find_roots_with_secant_polishing<F, G, E>(g: &G, f: &F, a: f64, b: f64, c
 
     for root in roots.iter() {
 
-        if let Ok(root_refined) = secant_polish(f, *root, SECANT_MAX_ITERATIONS, delta){
-            if (hyberr(*root, root_refined) < 1.) && (root_refined >= a) && (root_refined <= b) {
-                polished_roots.push(root_refined);
-            }
-        };
+        println!("{}", root);
+
+        let root_refined = secant_polish(f, *root, SECANT_MAX_ITERATIONS, delta)?;
+        if (hyberr(*root, root_refined) < 1.) && (root_refined >= a) && (root_refined <= b) {
+            println!("{}", root_refined);
+            polished_roots.push(root_refined);
+        }
+
     }
+    polished_roots.sort_by(|a, b| a.total_cmp(b));
     Ok(polished_roots.into_iter().dedup_by(|x, y| (x - y).abs() < delta).collect())
 }
 
@@ -313,12 +316,13 @@ pub fn find_roots_with_newton_polishing<F, G, D, E>(g: &G, f: &F, df: &D, a: f64
 
     for root in roots.iter() {
 
-        if let Ok(root_refined) = newton_polish(f, df, *root, NEWTON_MAX_ITERATIONS, delta){
-            if (hyberr(*root, root_refined) < 1.) && (root_refined >= a) && (root_refined <= b) {
-                polished_roots.push(root_refined);
-            }
-        };
+        let root_refined = newton_polish(f, df, *root, NEWTON_MAX_ITERATIONS, delta)?;
+        if (hyberr(*root, root_refined) < 1.) && (root_refined >= a) && (root_refined <= b) {
+            polished_roots.push(root_refined);
+        }
+
     }
+    polished_roots.sort_by(|a, b| a.total_cmp(b));
     Ok(polished_roots.into_iter().dedup_by(|x, y| (x - y).abs() < delta).collect())
 }
 
@@ -358,12 +362,13 @@ pub fn find_roots_piecewise_with_secant_polishing<F, G, E>(g: &G, f: &F, interva
     let mut polished_roots: Vec<f64> = Vec::new();
     for root in roots.iter() {
 
-        if let Ok(root_refined) = secant_polish(f, *root, SECANT_MAX_ITERATIONS, delta){
-            if (hyberr(*root, root_refined) < 1.) && (root_refined >= a) && (root_refined <= b) {
-                polished_roots.push(root_refined);
-            }
-        };
+        let root_refined = secant_polish(f, *root, SECANT_MAX_ITERATIONS, delta)?;
+        if (hyberr(*root, root_refined) < 1.) && (root_refined >= a) && (root_refined <= b) {
+            polished_roots.push(root_refined);
+        }
+
     }
+    polished_roots.sort_by(|a, b| a.total_cmp(b));
     Ok(polished_roots.into_iter().dedup_by(|x, y| (x - y).abs() < delta).collect())
 }
 
