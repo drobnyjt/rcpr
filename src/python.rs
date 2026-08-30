@@ -126,7 +126,7 @@ pub fn chebyshev_subdivide_py<'py>(_python: Python<'py>, f: &Bound<'py, PyAny>, 
 ///  - `conifg`: options for rootfinder  
 ///
 /// # Returns
-///  - `roots`: list of Roots. roots are sorted but not deduplicated.  
+///  - `roots`: list of sorted roots.
 #[cfg(feature = "python")]
 #[pyfunction]
 #[pyo3(signature = (f, a, b, config=None))]

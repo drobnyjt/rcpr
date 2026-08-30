@@ -25,7 +25,7 @@ use nalgebra::linalg::balancing::balance_parlett_reinsch;
 use std::f64::consts::PI;
 use cached::*;
 
-use crate::chebyshev::{ChebError, InputProblem};
+use crate::chebyshev::{ChebError, InputProblem, NumericProblem};
 
 pub mod chebyshev;
 pub mod rootfinders;
@@ -34,7 +34,7 @@ pub mod polish;
 pub mod python;
 
 /// Constructs the monomial Frobenius companion matrix from monomial coefficients `c_j`
-/// Assumes the leading coefficient is 1. and c_n is degree-0  
+/// Assumes c_n is degree-0
 ///
 /// # Source  
 /// A well known result; reproduced in \[3\] Eq. 1-2  
@@ -48,6 +48,13 @@ pub fn monomial_frobenius_matrix(c_j: DVector<f64>) -> Result<DMatrix<f64>, Cheb
     if c_j.len() == 1 {
         return Err(ChebError::Input(InputProblem::PolynomialDegreeInvalid))
     }
+
+    if c_j.iter().any(|&x| !x.is_finite()) {
+        return Err(ChebError::Numeric(NumericProblem::NonFinite))
+    }
+
+    let scale = 1./c_j[0];
+    let c_j = c_j.into_iter().map(|x| x*scale).collect::<Vec<f64>>();
 
     let N: usize = c_j.len() - 1;
 
@@ -121,6 +128,11 @@ fn test_fiedler() {
 
     let e = DVector::from(vec![1.0, 2.0, 3.0]);
     assert!(monomial_fiedler_matrix(e).is_ok());
+}
+
+/// Hybrid Error: https://arxiv.org/html/2403.07492v2
+pub fn hyberr(x: f64, y: f64) -> f64 {
+    (x - y).abs()/(1. + y.abs())
 }
 
 #[cfg(test)]
