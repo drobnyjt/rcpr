@@ -51,6 +51,7 @@ pub fn illinois_polish<F, E>(f: &F, x0: f64, iter_max: usize, epsilon: f64, delt
     }
 
     // Find an interval on which f(a)*f(b) < 0
+    // start with dx = epsilon, double it until bracket with root
     let mut dx = epsilon;
     let mut i = 0;
 

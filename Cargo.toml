@@ -9,6 +9,7 @@ repository = "https://github.com/drobnyjt/rcpr"
 rust-version = "1.85"
 keywords = ["rootfinding", "chebyshev"]
 categories = ["mathematics", "science", "physics"]
+exclude = [ "examples/*.py,", "setup.py", "pyproject.toml" ]
 
 [dependencies]
 # This includes the pull request that fixes nalgebra issue #611. Will use a version when released.

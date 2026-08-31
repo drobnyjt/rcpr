@@ -1,7 +1,7 @@
 [![Rust](https://github.com/drobnyjt/rcpr/actions/workflows/workflow.yml/badge.svg)](https://github.com/drobnyjt/rcpr/actions/workflows/workflow.yml) ![Coverage](assets/coverage.svg)
 
 # rcpr
-Rust Chebyshev Proxy Rootfinder: A robust global rootfinder using adaptive Chebyshev interpolation with automatic subdivision that accurately finds all roots of a smooth function F(x) on [a, b] using the Chebyshev-Frobenius companion matrix. Also included is a polynomial rootfinder for polynoials in monomial form via the monomial companion matrix. This work is based on the text _Solving Transcendental Equations_ (2013) by John P Boyd.
+Rust Chebyshev Proxy Rootfinder: A robust global rootfinder using adaptive Chebyshev interpolation with automatic subdivision that accurately finds all roots of a smooth function F(x) on [a, b] using the Chebyshev-Frobenius companion matrix. Also included is a polynomial rootfinder for polynomials in monomial form via the monomial companion matrix. This work is based on the text _Solving Transcendental Equations_ (2013) by John P Boyd.
 
 You can use rcpr as follows:
 
@@ -13,11 +13,11 @@ Include the line:
 `use rcpr::rootfinders::*;`
 in your rust source file.
 
-Many users will simply need the config struct and one of three functions: `find_roots`, `find_roots_with_newton_polishing`, `real_polynomial_roots`, `find_roots_with_secant_polishing`. These three functions are documented below:
+Many users will simply need the config struct and one of these functions: `find_roots`, `find_roots_with_newton_polishing`, `real_polynomial_roots`, `find_roots_with_secant_polishing`. These three functions are documented below:
 
 ## Configuring rootfinder(s)
 
-`rcpr` uses a Conig struct that has the following structure:
+`rcpr` uses a Config struct that has the following structure:
 
 ```
 Config {
@@ -47,10 +47,10 @@ let config = Config::new(
 These parameters are:
 * `N0: usize`: the initial degree of Chebyshev polynomial used to approximate G(x) (default: 2)
 * `epsilon: f64`: the absolute tolerance of the Chebyshev approximation to G(x) (default: 1e-6)
-* `delta: f64`: the (hybrid) relative error on step size of root polishers (default: 1e-9)
+* `delta: f64`: the (hybrid) relative error on step size of root polishers (default: 1e-7)
 * `N_max: usize`: the maximum degree of Chebyshev polynomial before the interval is subdivided (default: 512) 
 * `complex_threshold: f64`: the threshold of the imaginary part of roots that are near-real that is tolerated (default: 1e-4)
-* `interval_limit: f64`: if the subdivision algorithm produces an interval below this length, the function will return an Error and abort (default: 1e-4)
+* `interval_limit: f64`: if the subdivision algorithm produces an interval below this length, the function will return an Error and abort (default: 1e-12)
 * `far_from_zero: f64`: if G(x) evaluated at all the Lobatto grid points on an interval `[c, d]` is further than this value from zero, that interval will be assumed to have no roots contained within it (default: float_max)
 * error_calc: ErrorCalc (ErrorCalc::Absolute or ErrorCalc::Relative) - which error calculation to use. Relative is scaled by the max magnitude of the Lobatto-grid function evaluations on each interval; absolute error is estimated from the magnitude of the difference between the Nth- and 2Nth-degree Chebyshev interpolants on the interval.
 
@@ -64,7 +64,7 @@ These parameters are:
 Args:
 
 * `F: Fn(f64) -> Result<f64, E>`: the original function to find roots of on the interval `[a, b]`. Must be real, single-valued, and continuous.
-* `intervals: Vec<(f64, f64)>`: intervals to look for roots on; a list of tuples `(a_i, b_i)` such that `b_i < a_i`.
+* `intervals: Vec<(f64, f64)>`: intervals to look for roots on; a list of tuples `(a_i, b_i)` such that `b_i > a_i`.
 * `config`: Config struct defined above. 
 
 Returns:
@@ -87,7 +87,7 @@ Returns:
 
 ### Find roots with secant polishing (dF/dx not available)
 
-`find_roots_with_secant_polishing(G, F, a, b, N0, epsilon, N_max, config) -> Result<Vec<f64>, ChebError>`
+`find_roots_with_secant_polishing(G, F, a, b, config) -> Result<Vec<f64>, ChebError>`
 
 Args:
 
