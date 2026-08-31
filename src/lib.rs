@@ -54,6 +54,10 @@ pub fn monomial_frobenius_matrix(c_j: DVector<f64>) -> Result<DMatrix<f64>, Cheb
     }
 
     let scale = 1./c_j[0];
+    if !scale.is_finite() {
+        return Err(ChebError::Numeric(NumericProblem::NonFinite))
+    }
+
     let c_j = c_j.into_iter().map(|x| x*scale).collect::<Vec<f64>>();
 
     let N: usize = c_j.len() - 1;

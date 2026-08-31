@@ -244,7 +244,7 @@ pub fn find_roots_piecewise_with_newton_polishing<F, G, D, E>(g: &G, f: &F, df: 
 
     for root in roots.iter() {
         let root_refined = newton_polish(f, df, *root, NEWTON_MAX_ITERATIONS, delta)?;
-        if (hyberr(*root, root_refined) < 1.) && (root_refined >= a) && (root_refined <= b) {
+        if (hyberr(*root, root_refined) < 1.) && (root_refined >= a - delta) && (root_refined <= b + delta) {
             polished_roots.push(root_refined);
         }
     }
@@ -280,7 +280,7 @@ pub fn find_roots_with_secant_polishing<F, G, E>(g: &G, f: &F, a: f64, b: f64, c
         println!("{}", root);
 
         let root_refined = secant_polish(f, *root, SECANT_MAX_ITERATIONS, delta)?;
-        if (hyberr(*root, root_refined) < 1.) && (root_refined >= a) && (root_refined <= b) {
+        if (hyberr(*root, root_refined) < 1.) && (root_refined >= a - delta) && (root_refined <= b + delta) {
             println!("{}", root_refined);
             polished_roots.push(root_refined);
         }
@@ -317,7 +317,7 @@ pub fn find_roots_with_newton_polishing<F, G, D, E>(g: &G, f: &F, df: &D, a: f64
     for root in roots.iter() {
 
         let root_refined = newton_polish(f, df, *root, NEWTON_MAX_ITERATIONS, delta)?;
-        if (hyberr(*root, root_refined) < 1.) && (root_refined >= a) && (root_refined <= b) {
+        if (hyberr(*root, root_refined) < 1.) && (root_refined >= a - delta) && (root_refined <= b + delta) {
             polished_roots.push(root_refined);
         }
 
@@ -363,7 +363,7 @@ pub fn find_roots_piecewise_with_secant_polishing<F, G, E>(g: &G, f: &F, interva
     for root in roots.iter() {
 
         let root_refined = secant_polish(f, *root, SECANT_MAX_ITERATIONS, delta)?;
-        if (hyberr(*root, root_refined) < 1.) && (root_refined >= a) && (root_refined <= b) {
+        if (hyberr(*root, root_refined) < 1.) && (root_refined >= a - delta) && (root_refined <= b + delta) {
             polished_roots.push(root_refined);
         }
 
@@ -398,13 +398,13 @@ pub fn real_polynomial_roots(c_j: Vec<f64>, complex_threshold: f64) -> Result<Ve
         return Ok(vec![])
     }
 
-    if c_j.len() == 2 {
-        return Ok(vec![-c_j[1]/c_j[0]])
-    }
-
     let inverse_leading_coefficient = 1./c_j[0];
     if !inverse_leading_coefficient.is_finite() {
         return Err(ChebError::Numeric(NumericProblem::NonFinite))
+    }
+
+    if c_j.len() == 2 {
+        return Ok(vec![-c_j[1]/c_j[0]])
     }
 
     let scaled_c_j = c_j.iter().map(|&x| x*inverse_leading_coefficient).collect::<Vec<f64>>();
