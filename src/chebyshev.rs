@@ -1,14 +1,14 @@
 use super::*;
-use serde::Deserialize;
+use serde::{Serialize, Deserialize};
 use thiserror::Error;
 
-#[derive(Debug, Copy, Clone, Deserialize)]
+#[derive(Debug, Copy, Clone, Serialize, Deserialize)]
 pub enum ErrorCalc {
     Absolute,
     Relative
 }
 
-#[derive(Error, Debug)]
+#[derive(Error, Debug, Serialize)]
 pub enum ChebError {
     #[error("Failed to converge: {0:?}")]
     NotConverged(NotConvergedInfo),
@@ -20,14 +20,14 @@ pub enum ChebError {
     Input(InputProblem),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize)]
 pub struct NotConvergedInfo {
     pub function_name: &'static str,
     pub previous_error: f64,
     pub num_iterations: usize,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize)]
 pub enum InputProblem {
     IntervalInvalid((f64, f64)),
     IntervalLimitInvalid(f64),
@@ -35,6 +35,7 @@ pub enum InputProblem {
     MaxDegreeInvalid(usize),
     ComplexThresholdInvalid(f64),
     EpsilonInvalid(f64),
+    DeltaInvalid(f64),
     FarFromZeroInvalid(f64),
     PolynomialDegreeInvalid,
     GridSizeInvalid,
@@ -43,7 +44,7 @@ pub enum InputProblem {
     PolynomialDegreeTooLow,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize)]
 pub enum NumericProblem {
     NonFinite,
     IntervalTooSmall((f64, f64)),
@@ -56,7 +57,7 @@ pub enum NumericProblem {
 /// This function calculates the Chebyshev coefficients and associated error (absolute or relative) 
 /// of a single-valued, real, continuous function on the interval [a, b], for the smallest degree N
 /// that satisfies error < epsilon. Each iteration, N0 is doubled until the desired error is achieved
-/// or N_max is reached. 
+/// or N_max is reached. If N_max is reached, it returns an error.
 ///
 /// # Arguments
 ///  - `f`: the function f(x); must return `Result<f64, E>`
@@ -291,7 +292,7 @@ where F: Fn(f64) -> Result<f64, E>, E: std::error::Error + Send + Sync + 'static
             .collect::<Result<Vec<f64>, E>>()
             .map_err(|e| ChebError::Function(format!("Failed to calculate f(x): {}", e)))?
         );
-        return Ok((&I_jk*&f_xk, f_xk))
+        return Ok((&*I_jk * &f_xk, f_xk))
     }
 
     let f_xk = DVector::<f64>::from(
@@ -305,7 +306,7 @@ where F: Fn(f64) -> Result<f64, E>, E: std::error::Error + Send + Sync + 'static
     ).collect::<Result<Vec<f64>, E>>()
         .map_err(|e| ChebError::Function(format!("Failed to calculate f(x): {}", e)))?);
     
-    Ok((&I_jk*&f_xk, f_xk))
+    Ok((&*I_jk * &f_xk, f_xk))
 }
 
 /// Given a vector of Chebyshev coefficients \[a_0, ... a_N\], return \[a_0 ... a_i\] such that a_i is the
@@ -405,12 +406,13 @@ fn delta(j: i32, k: i32) -> f64 {
     }
 }
 
+use std::sync::Arc;
 #[concurrent_cached]
 /// Chebyshev interpolation matrix of size (N + 1).
 /// \[2\] A.3
 ///  - \[1\] J Boyd, Solving Transcendental Equations, SIAM, 2014, doi: 10.1137/1.9781611973525
 ///  - \[2\] J Boyd, Finding the Zeros of a Univariate Equation, SIAM Review, 2013, doi:10.1137/110838297
-fn interpolation_matrix(N: usize) -> DMatrix<f64> {
+fn interpolation_matrix(N: usize) -> Arc<DMatrix<f64>> {
 
     let mut I_jk: DMatrix<f64> = DMatrix::zeros(N + 1, N + 1);
 
@@ -419,7 +421,7 @@ fn interpolation_matrix(N: usize) -> DMatrix<f64> {
             I_jk[(j, k)] = 2./p(j, N)/p(k, N)/N as f64*(j as f64*PI*k as f64/N as f64).cos();
         }
     }
-    I_jk
+    Arc::new(I_jk)
 }
 
 /// Calculates the values of a Lobatto grid on \[a, b\] of degree N

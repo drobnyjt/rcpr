@@ -10,6 +10,10 @@ where F: Fn(f64) -> Result<f64, E>, D: Fn(f64) -> Result<f64, E>, E: std::error:
         return Err(ChebError::Numeric(NumericProblem::NonFinite))
     }
 
+    if delta <= 0.0 { 
+        return Err(ChebError::Input(InputProblem::DeltaInvalid(delta)))
+    }
+
     let mut x = x0;
     let mut err = 0.;
 
@@ -43,7 +47,7 @@ pub fn illinois_polish<F, E>(f: &F, x0: f64, iter_max: usize, epsilon: f64, delt
     }
 
     if delta <= 0. {
-        return Err(ChebError::Input(InputProblem::EpsilonInvalid(delta)))
+        return Err(ChebError::Input(InputProblem::DeltaInvalid(delta)))
     }
 
     // Find an interval on which f(a)*f(b) < 0
@@ -117,6 +121,10 @@ pub fn secant_polish<F, E>(f: &F, x0: f64, iter_max: usize, delta: f64) -> Resul
 
     if !x0.is_finite() {
         return Err(ChebError::Numeric(NumericProblem::NonFinite))
+    }
+    
+    if delta <= 0.0 { 
+        return Err(ChebError::Input(InputProblem::DeltaInvalid(delta)))
     }
 
     let mut x1 = x0;
