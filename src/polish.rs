@@ -103,11 +103,11 @@ pub fn illinois_polish<F, E>(f: &F, x0: f64, iter_max: usize, epsilon: f64, delt
         } else {
             f1 = f1/2.
         }
+        x2 = x3;
+        f2 = f3;
         if hyberr(x1, x2) < delta {
             return Ok(x3)
         }
-        x2 = x3;
-        f2 = f3;
     }
     Err(ChebError::NotConverged(NotConvergedInfo {
         function_name: "illinois_polish",
