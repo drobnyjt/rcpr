@@ -51,7 +51,7 @@ const fn default_error_calc() -> ErrorCalc {
 ///  - `far_from_zero`: skips intervals on which all Lobatto-grid function evaluations > this value  
 ///  - `interval_limit`: limit on interval size after subdivision  
 ///  - `error_calc`: `ErrCalc::Absolute` or `ErrorCalc::Relative `   
-#[derive(Clone, Copy, Deserialize)]
+#[derive(Clone, Copy, Serialize, Deserialize, Debug)]
 #[serde(deny_unknown_fields)]
 pub struct Config {
     #[serde(default = "default_epsilon")]
@@ -139,15 +139,15 @@ pub fn find_roots<F, E>(f: &F, intervals: Vec<(f64, f64)>, config: Config) -> Re
         return Err(ChebError::Input(InputProblem::MaxDegreeInvalid(N_max)))
     }
 
-    if complex_threshold < 0.0 {
+    if complex_threshold < 0.0 || !complex_threshold.is_finite() {
         return Err(ChebError::Input(InputProblem::ComplexThresholdInvalid(complex_threshold)))
     }
 
-    if interval_limit <= 0. {
+    if interval_limit <= 0. || !interval_limit.is_finite() {
         return Err(ChebError::Input(InputProblem::IntervalLimitInvalid(interval_limit)))
     }
 
-    if far_from_zero <= 0. {
+    if far_from_zero <= 0. || !far_from_zero.is_finite() {
         return Err(ChebError::Input(InputProblem::FarFromZeroInvalid(far_from_zero)))
     }
 
@@ -211,13 +211,20 @@ pub fn find_roots<F, E>(f: &F, intervals: Vec<(f64, f64)>, config: Config) -> Re
     Ok(roots)
 }
 
-/// Finds and Newton-polishes all roots of a function f(x) on intervals \[a_i, b_i\]
+/// Finds and Newton-polishes all roots of a function f(x) on a list of intervals
 /// via adaptive Chebyshev proxy rootfinding with automatic subdivision  
 ///
 /// # Arguments  
-///  - `f`: function to find roots of; must return `Result<f64, E>`  
-///  - `intervals`: Vec of intervals [a_i, b_i], to, piecewise, find roots on; `Vec<(f64, f64)>`  
+///  - `g`: scaled function to find roots of; must return  `Result<f64, E>`
+///  - `f`: function to find roots of; must return `Result<f64, E>`
+///  - `df` derivative of function to find roots of; must return `Result<f64, E>`
+///  - `intervals`: vec of tuples (a_i, b_i) that form the interval
 ///  - `config`: `Config` struct that configures rootfinder.  
+/// 
+/// # Returns
+///  - `Result<roots, ChebError>`  
+///  - `roots`: list of roots found, sorted.
+/// 
 /// 
 /// # Returns  
 ///  - `Result<roots, ChebError>`  
@@ -244,7 +251,7 @@ pub fn find_roots_piecewise_with_newton_polishing<F, G, D, E>(g: &G, f: &F, df: 
 
     for root in roots.iter() {
         let root_refined = newton_polish(f, df, *root, NEWTON_MAX_ITERATIONS, delta)?;
-        if (hyberr(*root, root_refined) < 1.) && (root_refined >= a) && (root_refined <= b) {
+        if (hyberr(*root, root_refined) < 1.) && (root_refined >= a - delta) && (root_refined <= b + delta) {
             polished_roots.push(root_refined);
         }
     }
@@ -256,9 +263,15 @@ pub fn find_roots_piecewise_with_newton_polishing<F, G, D, E>(g: &G, f: &F, df: 
 /// via adaptive Chebyshev proxy rootfinding with automatic subdivision  
 ///
 /// # Arguments  
-///  - `f`: function to find roots of; must return `Result<f64, E>`  
-///  - `intervals`: Vec of intervals [a_i, b_i], to, piecewise, find roots on; `Vec<(f64, f64)>`  
+///  - `g`: scaled function to find roots of; must return  `Result<f64, E>`
+///  - `f`: function to find roots of; must return `Result<f64, E>`
+///  - `a`: left end of interval
+///  - `b`: right end of interval
 ///  - `config`: `Config` struct that configures rootfinder.  
+/// 
+/// # Returns
+///  - `Result<roots, ChebError>`  
+///  - `roots`: list of roots found, sorted.
 /// 
 /// # Returns  
 ///  - `Result<roots, ChebError>`  
@@ -277,14 +290,52 @@ pub fn find_roots_with_secant_polishing<F, G, E>(g: &G, f: &F, a: f64, b: f64, c
 
     for root in roots.iter() {
 
-        println!("{}", root);
-
         let root_refined = secant_polish(f, *root, SECANT_MAX_ITERATIONS, delta)?;
-        if (hyberr(*root, root_refined) < 1.) && (root_refined >= a) && (root_refined <= b) {
-            println!("{}", root_refined);
+        if (hyberr(*root, root_refined) < 1.) && (root_refined >= a - delta) && (root_refined <= b + delta) {
             polished_roots.push(root_refined);
         }
 
+    }
+    polished_roots.sort_by(|a, b| a.total_cmp(b));
+    Ok(polished_roots.into_iter().dedup_by(|x, y| (x - y).abs() < delta).collect())
+}
+
+/// Finds and Illinois-polishes all roots of a function f(x) on interval \[a, b\]
+/// via adaptive Chebyshev proxy rootfinding with automatic subdivision  
+///
+/// # Arguments  
+///  - `g`: scaled function to find roots of; must return  `Result<f64, E>`
+///  - `f`: function to find roots of; must return `Result<f64, E>`
+///  - `a`: left end of interval
+///  - `b`: right end of interval
+///  - `config`: `Config` struct that configures rootfinder.  
+/// 
+/// # Returns
+///  - `Result<roots, ChebError>`  
+///  - `roots`: list of roots found, sorted.
+/// 
+/// # Returns  
+///  - `Result<roots, ChebError>`  
+///  - `roots`: list of roots found, sorted. 
+/// 
+/// # Sources  
+/// Most complete, succinct description can be found in \[2\]. More discussion in \[1\]. Illinois method from [3].
+///  - \[1\] J Boyd, Solving Transcendental Equations, SIAM, 2014, doi: 10.1137/1.9781611973525  
+///  - \[2\] J Boyd, Finding the Zeros of a Univariate Equation, SIAM Review, 2013, doi:10.1137/110838297
+///  - \[3\] https://numbersandshapes.net/posts/illinois_method/
+pub fn find_roots_with_illinois_polishing<F, G, E>(g: &G, f: &F, a: f64, b: f64, config: Config) -> Result<Vec<f64>, ChebError> where F: Fn(f64) -> Result<f64, E>, G: Fn(f64) -> Result<f64, E>, E: std::error::Error + Send + Sync + 'static, {
+
+    let Config {delta, epsilon, ..} = config;
+
+    let roots = find_roots(g, vec![(a, b)], config)?;
+    let mut polished_roots: Vec<f64> = Vec::new();
+
+    for root in roots.iter() {
+
+        let root_refined = illinois_polish(f, *root, SECANT_MAX_ITERATIONS, epsilon, delta)?;
+        if (hyberr(*root, root_refined) < 1.) && (root_refined >= a - delta) && (root_refined <= b + delta) {
+            polished_roots.push(root_refined);
+        }
     }
     polished_roots.sort_by(|a, b| a.total_cmp(b));
     Ok(polished_roots.into_iter().dedup_by(|x, y| (x - y).abs() < delta).collect())
@@ -294,8 +345,11 @@ pub fn find_roots_with_secant_polishing<F, G, E>(g: &G, f: &F, a: f64, b: f64, c
 /// via adaptive Chebyshev proxy rootfinding with automatic subdivision  
 ///
 /// # Arguments  
-///  - `f`: function to find roots of; must return `Result<f64, E>`  
-///  - `intervals`: Vec of intervals [a_i, b_i], to, piecewise, find roots on; `Vec<(f64, f64)>`  
+///  - `g`: scaled function to find roots of; must return  `Result<f64, E>`
+///  - `f`: function to find roots of; must return `Result<f64, E>`
+///  - `df` derivative of function to find roots of; must return `Result<f64, E>`
+///  - `a`: left end of interval
+///  - `b`: right end of interval
 ///  - `config`: `Config` struct that configures rootfinder.  
 /// 
 /// # Returns
@@ -317,7 +371,7 @@ pub fn find_roots_with_newton_polishing<F, G, D, E>(g: &G, f: &F, df: &D, a: f64
     for root in roots.iter() {
 
         let root_refined = newton_polish(f, df, *root, NEWTON_MAX_ITERATIONS, delta)?;
-        if (hyberr(*root, root_refined) < 1.) && (root_refined >= a) && (root_refined <= b) {
+        if (hyberr(*root, root_refined) < 1.) && (root_refined >= a - delta) && (root_refined <= b + delta) {
             polished_roots.push(root_refined);
         }
 
@@ -326,7 +380,7 @@ pub fn find_roots_with_newton_polishing<F, G, D, E>(g: &G, f: &F, df: &D, a: f64
     Ok(polished_roots.into_iter().dedup_by(|x, y| (x - y).abs() < delta).collect())
 }
 
-/// Finds and Secant-polishes all roots of a function f(x) on intervals \[a_i, b_i\]
+/// Finds and Secant-polishes all roots of a function f(x) on list of intervals \[a_i, b_i\]
 /// via adaptive Chebyshev proxy rootfinding with automatic subdivision  
 ///
 /// # Arguments  
@@ -363,7 +417,7 @@ pub fn find_roots_piecewise_with_secant_polishing<F, G, E>(g: &G, f: &F, interva
     for root in roots.iter() {
 
         let root_refined = secant_polish(f, *root, SECANT_MAX_ITERATIONS, delta)?;
-        if (hyberr(*root, root_refined) < 1.) && (root_refined >= a) && (root_refined <= b) {
+        if (hyberr(*root, root_refined) < 1.) && (root_refined >= a - delta) && (root_refined <= b + delta) {
             polished_roots.push(root_refined);
         }
 
@@ -398,13 +452,13 @@ pub fn real_polynomial_roots(c_j: Vec<f64>, complex_threshold: f64) -> Result<Ve
         return Ok(vec![])
     }
 
-    if c_j.len() == 2 {
-        return Ok(vec![-c_j[1]/c_j[0]])
-    }
-
     let inverse_leading_coefficient = 1./c_j[0];
     if !inverse_leading_coefficient.is_finite() {
         return Err(ChebError::Numeric(NumericProblem::NonFinite))
+    }
+
+    if c_j.len() == 2 {
+        return Ok(vec![-c_j[1]/c_j[0]])
     }
 
     let scaled_c_j = c_j.iter().map(|&x| x*inverse_leading_coefficient).collect::<Vec<f64>>();

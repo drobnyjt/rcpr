@@ -61,6 +61,25 @@ fn test_secant_polish() {
 }
 
 #[test]
+fn test_illinois_polish() {
+    let f = |x: f64| -> Result<f64, std::convert::Infallible> { Ok(4.*(x - 3.)*(x - 2.)) };
+
+    let x0 = 3.1;
+    let result = illinois_polish(&f, x0, 1000, 1e-10, 1e-12);
+
+    // Ensure doesn't fail and is correct
+    assert!(result.is_ok());
+    assert!((result.unwrap() - 3.0) < 1e-12);
+    // Ensure failing f(x) propagates
+    assert!(illinois_polish(&failing, x0, 1000, 1e-10, 1e-12).is_err());
+    // Ensure bad iter_max errors
+    assert!(illinois_polish(&f, x0, 0, 1e-10, 1e-12).is_err());
+    // Ensure bad delta errors
+    assert!(illinois_polish(&f, x0, 1000, 1e-10, -1.0).is_err());
+}
+
+
+#[test]
 fn test_frobenius_matrix_inputs() {
     // empty coefficients can't be used to make a matrix
     let a = DVector::from(vec![]);
@@ -209,14 +228,15 @@ fn dynamic_range() {
     let a = 0.0;
     let b = 8.5;
     let mut config = Config::default();
-    config.epsilon = 1e-9;
+    config.epsilon = 1e-3;
+    config.delta = 1e-9;
     config.error_calc = ErrorCalc::Relative;
     let mut roots = find_roots(&q, vec![(a, b)], config).unwrap();
     roots.sort_by(|a, b| a.total_cmp(b));
 
     let mut roots_polished = vec![];
     for &root in roots.iter() {
-        let new_root = secant_polish(&q, root, 1000, f64::EPSILON).unwrap();
+        let new_root = secant_polish(&q, root, 1000, config.delta).unwrap();
         roots_polished.push(new_root);
         println!("{} -> {}", root, new_root);
     }
@@ -260,13 +280,32 @@ fn test_rootfinding_with_newton() {
     assert!((roots.iter().sum::<f64>() - -4.00009).powf(2.) < 0.01, "Sum of all roots should be -4.00009. Rootfinder found {}", roots.iter().sum::<f64>());
 }
 
+
 #[test]
 fn test_rootfinding_with_secant() {
     let a = -10.;
-    let b = 10.;
+    let b = 10.01;
     let config = Config::default();
 
     let roots = find_roots_piecewise_with_secant_polishing(&g, &f, vec![(a, -2E-4), (-2E-4, 0.0), (0.0, 2E-5), (2E-5, b)], config).unwrap();
+    let num_roots = roots.len();
+
+    println!("Identified {} roots.", num_roots);
+    for root in roots.iter() {
+        println!("Root: {}", root);
+    }
+    println!("Sum of roots found: {}; Expected value: {}", roots.iter().sum::<f64>(), -4.00009);
+    assert_eq!(7, num_roots, "Rootfinder should find 7 roots. It found {}", num_roots);
+    assert!((roots.iter().sum::<f64>() - -4.00009).powf(2.) < 0.01, "Sum of all roots should be -4.00009. Rootfinder found {}", roots.iter().sum::<f64>());
+}
+
+#[test]
+fn test_rootfinding_with_illinois() {
+    let a = -10.;
+    let b = 10.01;
+    let config = Config::default();
+
+    let roots = find_roots_with_illinois_polishing(&g, &f, a, b, config).unwrap();
     let num_roots = roots.len();
 
     println!("Identified {} roots.", num_roots);
@@ -337,6 +376,7 @@ fn test_rootfinders() {
     let roots_4 = find_roots_with_secant_polishing(&q, &q, a, b, config).unwrap();
     let roots_5 = find_roots_piecewise_with_newton_polishing(&q, &q, &dq, intervals.clone(), config).unwrap();
     let roots_6 = find_roots_piecewise_with_secant_polishing(&q, &q, intervals.clone(), config).unwrap();
+    let roots_7 = find_roots_with_illinois_polishing(&q, &q, a, b, config).unwrap();
 
     assert!((roots_1[0] + 3.2).abs() < config.epsilon);
     assert!((roots_2[0] + 3.2).abs() < config.epsilon);
@@ -344,10 +384,12 @@ fn test_rootfinders() {
     assert!((roots_4[0] + 3.2).abs() < config.epsilon);
     assert!((roots_5[0] + 3.2).abs() < config.epsilon);
     assert!((roots_6[0] + 3.2).abs() < config.epsilon);
+    assert!((roots_7[0] + 3.2).abs() < config.epsilon);
 
     assert!(find_roots(&failing, intervals.clone(), config).is_err());
     assert!(find_roots_with_newton_polishing(&failing, &failing, &failing, a, b, config).is_err());
     assert!(find_roots_with_secant_polishing(&failing, &failing, a, b, config).is_err());
     assert!(find_roots_piecewise_with_newton_polishing(&failing, &failing, &failing, intervals.clone(), config).is_err());
     assert!(find_roots_piecewise_with_secant_polishing(&failing, &failing, intervals.clone(), config).is_err());
+    assert!(find_roots_with_illinois_polishing(&failing, &failing, a, b, config).is_err());
 }
