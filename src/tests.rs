@@ -281,19 +281,6 @@ fn test_rootfinding_with_newton() {
 }
 
 
-/*
-fn g(x: f64) -> Result<f64, std::convert::Infallible> {
-    Ok(f(x).unwrap()/(10. + x.powf(6.)))
-}
-
-//This is an adversarial function; it has 7 roots, 1 of which is on an end of the interval
-//and two which are both very near zero and very near each other.
-fn f(x: f64) -> Result<f64, std::convert::Infallible> {
-    Ok((x - 2.)*(x + 3.)*(x - 8.)*(x + 1E-4)*(x - 1E-5)*(x + 1.)*(x + 10.0))
-}
-
-*/
-
 #[test]
 fn test_rootfinding_with_secant() {
     let a = -10.;
@@ -301,6 +288,24 @@ fn test_rootfinding_with_secant() {
     let config = Config::default();
 
     let roots = find_roots_piecewise_with_secant_polishing(&g, &f, vec![(a, -2E-4), (-2E-4, 0.0), (0.0, 2E-5), (2E-5, b)], config).unwrap();
+    let num_roots = roots.len();
+
+    println!("Identified {} roots.", num_roots);
+    for root in roots.iter() {
+        println!("Root: {}", root);
+    }
+    println!("Sum of roots found: {}; Expected value: {}", roots.iter().sum::<f64>(), -4.00009);
+    assert_eq!(7, num_roots, "Rootfinder should find 7 roots. It found {}", num_roots);
+    assert!((roots.iter().sum::<f64>() - -4.00009).powf(2.) < 0.01, "Sum of all roots should be -4.00009. Rootfinder found {}", roots.iter().sum::<f64>());
+}
+
+#[test]
+fn test_rootfinding_with_illinois() {
+    let a = -10.;
+    let b = 10.01;
+    let config = Config::default();
+
+    let roots = find_roots_with_illinois_polishing(&g, &f, a, b, config).unwrap();
     let num_roots = roots.len();
 
     println!("Identified {} roots.", num_roots);
@@ -371,6 +376,7 @@ fn test_rootfinders() {
     let roots_4 = find_roots_with_secant_polishing(&q, &q, a, b, config).unwrap();
     let roots_5 = find_roots_piecewise_with_newton_polishing(&q, &q, &dq, intervals.clone(), config).unwrap();
     let roots_6 = find_roots_piecewise_with_secant_polishing(&q, &q, intervals.clone(), config).unwrap();
+    let roots_7 = find_roots_with_illinois_polishing(&q, &q, a, b, config).unwrap();
 
     assert!((roots_1[0] + 3.2).abs() < config.epsilon);
     assert!((roots_2[0] + 3.2).abs() < config.epsilon);
@@ -378,10 +384,12 @@ fn test_rootfinders() {
     assert!((roots_4[0] + 3.2).abs() < config.epsilon);
     assert!((roots_5[0] + 3.2).abs() < config.epsilon);
     assert!((roots_6[0] + 3.2).abs() < config.epsilon);
+    assert!((roots_7[0] + 3.2).abs() < config.epsilon);
 
     assert!(find_roots(&failing, intervals.clone(), config).is_err());
     assert!(find_roots_with_newton_polishing(&failing, &failing, &failing, a, b, config).is_err());
     assert!(find_roots_with_secant_polishing(&failing, &failing, a, b, config).is_err());
     assert!(find_roots_piecewise_with_newton_polishing(&failing, &failing, &failing, intervals.clone(), config).is_err());
     assert!(find_roots_piecewise_with_secant_polishing(&failing, &failing, intervals.clone(), config).is_err());
+    assert!(find_roots_with_illinois_polishing(&failing, &failing, a, b, config).is_err());
 }

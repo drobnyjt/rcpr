@@ -42,13 +42,28 @@ pub fn illinois_polish<F, E>(f: &F, x0: f64, iter_max: usize, epsilon: f64, delt
     let mut dx = epsilon;
     let mut i = 0;
 
-    while f(x0 + dx).map_err(|e| ChebError::Function(format!("Failed to calculate f(x) for x={}: {}", x0 + dx, e)))?*f(x0 - dx).map_err(|e| ChebError::Function(format!("Failed to calculate f(x) for x={}: {}", x0 - dx, e)))? > 0.0 {
+    while {
+        let x1 = x0 - dx;
+        let x2 = x0 + dx;
+        let f1 = f(x1).map_err(|e| ChebError::Function(format!("Failed to calculate f(x) for x={}: {}", x1, e)))?;
+        let f2 = f(x2).map_err(|e| ChebError::Function(format!("Failed to calculate f(x) for x={}: {}", x2, e)))?;
+        if !(f1*f2).is_finite() {
+            return Err(ChebError::Numeric(NumericProblem::NonFinite))
+        }
+        f1*f2
+    } > 0.0 {
         if i > iter_max {
-            return Err(ChebError::NotConverged(NotConvergedInfo { function_name: "illinois_polish", previous_error: dx, num_iterations: i }))
+            return Err(
+                ChebError::NotConverged(
+                    NotConvergedInfo {
+                        function_name: "illinois_polish bracket expansion",
+                        previous_error: dx,
+                        num_iterations: i }
+                    )
+                )
         }
         dx *= 2.;
         i += 1;
-        
     }
 
     let mut x1 = x0 - dx;
@@ -59,7 +74,7 @@ pub fn illinois_polish<F, E>(f: &F, x0: f64, iter_max: usize, epsilon: f64, delt
 
     for _ in 1..=iter_max {
         x3 = x2 - f2*(x2 - x1)/(f2 - f1);
-        let f3 = f(x3).map_err(|e| ChebError::Function(format!("Failed to calculate f(x) for x={}: {}", x1, e)))?;
+        let f3 = f(x3).map_err(|e| ChebError::Function(format!("Failed to calculate f(x) for x={}: {}", x3, e)))?;
         if f2*f3 < 0. {
             x1 = x2;
             f1 = f2;
@@ -74,7 +89,7 @@ pub fn illinois_polish<F, E>(f: &F, x0: f64, iter_max: usize, epsilon: f64, delt
         f2 = f3;
     }
     Err(ChebError::NotConverged(NotConvergedInfo {
-        function_name: "secant_polish",
+        function_name: "illinois_polish",
         previous_error: hyberr(x2, x3),
         num_iterations: iter_max
     }))

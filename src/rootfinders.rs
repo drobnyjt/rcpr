@@ -277,14 +277,45 @@ pub fn find_roots_with_secant_polishing<F, G, E>(g: &G, f: &F, a: f64, b: f64, c
 
     for root in roots.iter() {
 
-        println!("{}", root);
-
         let root_refined = secant_polish(f, *root, SECANT_MAX_ITERATIONS, delta)?;
         if (hyberr(*root, root_refined) < 1.) && (root_refined >= a - delta) && (root_refined <= b + delta) {
-            println!("{}", root_refined);
             polished_roots.push(root_refined);
         }
 
+    }
+    polished_roots.sort_by(|a, b| a.total_cmp(b));
+    Ok(polished_roots.into_iter().dedup_by(|x, y| (x - y).abs() < delta).collect())
+}
+
+/// Finds and Secant-polishes all roots of a function f(x) on interval \[a, b\]
+/// via adaptive Chebyshev proxy rootfinding with automatic subdivision  
+///
+/// # Arguments  
+///  - `f`: function to find roots of; must return `Result<f64, E>`  
+///  - `intervals`: Vec of intervals [a_i, b_i], to, piecewise, find roots on; `Vec<(f64, f64)>`  
+///  - `config`: `Config` struct that configures rootfinder.  
+/// 
+/// # Returns  
+///  - `Result<roots, ChebError>`  
+///  - `roots`: list of roots found, sorted. 
+/// 
+/// # Sources  
+/// Most complete, succinct description can be found in \[2\]. More discussion in \[1\].  
+///  - \[1\] J Boyd, Solving Transcendental Equations, SIAM, 2014, doi: 10.1137/1.9781611973525  
+///  - \[2\] J Boyd, Finding the Zeros of a Univariate Equation, SIAM Review, 2013, doi:10.1137/110838297
+pub fn find_roots_with_illinois_polishing<F, G, E>(g: &G, f: &F, a: f64, b: f64, config: Config) -> Result<Vec<f64>, ChebError> where F: Fn(f64) -> Result<f64, E>, G: Fn(f64) -> Result<f64, E>, E: std::error::Error + Send + Sync + 'static, {
+
+    let Config {delta, epsilon, ..} = config;
+
+    let roots = find_roots(g, vec![(a, b)], config)?;
+    let mut polished_roots: Vec<f64> = Vec::new();
+
+    for root in roots.iter() {
+
+        let root_refined = illinois_polish(f, *root, SECANT_MAX_ITERATIONS, epsilon, delta)?;
+        if (hyberr(*root, root_refined) < 1.) && (root_refined >= a - delta) && (root_refined <= b + delta) {
+            polished_roots.push(root_refined);
+        }
     }
     polished_roots.sort_by(|a, b| a.total_cmp(b));
     Ok(polished_roots.into_iter().dedup_by(|x, y| (x - y).abs() < delta).collect())
