@@ -300,9 +300,10 @@ pub fn find_roots_with_secant_polishing<F, G, E>(g: &G, f: &F, a: f64, b: f64, c
 ///  - `roots`: list of roots found, sorted. 
 /// 
 /// # Sources  
-/// Most complete, succinct description can be found in \[2\]. More discussion in \[1\].  
+/// Most complete, succinct description can be found in \[2\]. More discussion in \[1\]. Illinois method from [3].
 ///  - \[1\] J Boyd, Solving Transcendental Equations, SIAM, 2014, doi: 10.1137/1.9781611973525  
 ///  - \[2\] J Boyd, Finding the Zeros of a Univariate Equation, SIAM Review, 2013, doi:10.1137/110838297
+///  - \[3\] https://numbersandshapes.net/posts/illinois_method/
 pub fn find_roots_with_illinois_polishing<F, G, E>(g: &G, f: &F, a: f64, b: f64, config: Config) -> Result<Vec<f64>, ChebError> where F: Fn(f64) -> Result<f64, E>, G: Fn(f64) -> Result<f64, E>, E: std::error::Error + Send + Sync + 'static, {
 
     let Config {delta, epsilon, ..} = config;

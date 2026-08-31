@@ -32,10 +32,18 @@ where F: Fn(f64) -> Result<f64, E>, D: Fn(f64) -> Result<f64, E>, E: std::error:
     }))
 }
 
-/// Polishes a root using the Illinois method, with a bracket defined by epsilon with doubling if root not in bracket
+/// Polishes a root using the Illinois method, with a bracket defined initially by epsilon with doubling if root not in bracket
 pub fn illinois_polish<F, E>(f: &F, x0: f64, iter_max: usize, epsilon: f64, delta: f64) -> Result<f64, ChebError> where F: Fn(f64) -> Result<f64, E>, E: std::error::Error + Send + Sync + 'static, {
     if !x0.is_finite() {
         return Err(ChebError::Numeric(NumericProblem::NonFinite))
+    }
+
+    if epsilon <= 0. {
+        return Err(ChebError::Input(InputProblem::EpsilonInvalid(epsilon)))
+    }
+
+    if delta <= 0. {
+        return Err(ChebError::Input(InputProblem::EpsilonInvalid(delta)))
     }
 
     // Find an interval on which f(a)*f(b) < 0
@@ -47,6 +55,7 @@ pub fn illinois_polish<F, E>(f: &F, x0: f64, iter_max: usize, epsilon: f64, delt
         let x2 = x0 + dx;
         let f1 = f(x1).map_err(|e| ChebError::Function(format!("Failed to calculate f(x) for x={}: {}", x1, e)))?;
         let f2 = f(x2).map_err(|e| ChebError::Function(format!("Failed to calculate f(x) for x={}: {}", x2, e)))?;
+
         if !(f1*f2).is_finite() {
             return Err(ChebError::Numeric(NumericProblem::NonFinite))
         }
@@ -68,21 +77,29 @@ pub fn illinois_polish<F, E>(f: &F, x0: f64, iter_max: usize, epsilon: f64, delt
 
     let mut x1 = x0 - dx;
     let mut x2 = x0 + dx;
-    let mut x3 = x0;
+    let mut x3;
     let mut f1 = f(x1).map_err(|e| ChebError::Function(format!("Failed to calculate f(x) for x={}: {}", x1, e)))?;
+    if f1.abs() < f64::EPSILON {
+        return Ok(x1)
+    }
     let mut f2 = f(x2).map_err(|e| ChebError::Function(format!("Failed to calculate f(x) for x={}: {}", x2, e)))?;
+    if f2.abs() < f64::EPSILON {
+        return Ok(x2)
+    }
 
     for _ in 1..=iter_max {
         x3 = x2 - f2*(x2 - x1)/(f2 - f1);
         let f3 = f(x3).map_err(|e| ChebError::Function(format!("Failed to calculate f(x) for x={}: {}", x3, e)))?;
+        if f3.abs() < f64::EPSILON {
+            return Ok(x3)
+        }
         if f2*f3 < 0. {
             x1 = x2;
             f1 = f2;
         } else {
             f1 = f1/2.
         }
-
-        if hyberr(x2, x3) < delta {
+        if hyberr(x1, x2) < delta {
             return Ok(x3)
         }
         x2 = x3;
@@ -90,7 +107,7 @@ pub fn illinois_polish<F, E>(f: &F, x0: f64, iter_max: usize, epsilon: f64, delt
     }
     Err(ChebError::NotConverged(NotConvergedInfo {
         function_name: "illinois_polish",
-        previous_error: hyberr(x2, x3),
+        previous_error: hyberr(x1, x2),
         num_iterations: iter_max
     }))
 }
