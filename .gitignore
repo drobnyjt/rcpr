@@ -8,3 +8,4 @@ Cargo.lock
 *.pdb
 src/*.egg-info
 src/*.egg-info/*
+build/
