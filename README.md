@@ -110,3 +110,8 @@ Args:
 
 Returns:
 * `Result<Vec<f64>, ChebError>`: if successful, returns a vec of the real roots of P(x)
+
+
+## Generative AI Policy
+
+rcpr's generative AI policy is the same as the Rust language project, `rust-lang/rust`. That policy can be found [here](https://forge.rust-lang.org/policies/llm-usage.html).
